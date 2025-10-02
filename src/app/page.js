@@ -88,7 +88,7 @@ export default function Home() {
           </div>
           
           <h2>You are logged in as {user.role}</h2>
-          <p style={{ marginBottom: '30px' }}>Choose what you'd like to do:</p>
+          <p style={{ marginBottom: '30px' }}>Choose what you had like to do:</p>
           
           {user.role === 'admin' ? (
             <div>
