@@ -51,21 +51,15 @@ export default function Admin() {
   }
 
   const addQuestion = () => {
-    // if (!currentQuestion.question.trim() || currentQuestion.options.some(opt => !opt.trim())) {
-    //   alert('Please fill all question fields')
-    //   return
-    // }
-    if (!currentQuestion.question.trim()) {
-    alert('Please enter a question')
-    return
-  }
+    if (!currentQuestion.question.trim() || currentQuestion.options.some(opt => !opt.trim())) {
+      alert('Please fill all question fields')
+      return
+    }
 
     setNewQuiz({
       ...newQuiz,
       questions: [...newQuiz.questions, { ...currentQuestion, id: Date.now().toString() }]
     })
-
-    
 
     setCurrentQuestion({
       question: '',
