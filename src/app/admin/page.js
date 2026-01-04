@@ -168,7 +168,7 @@ export default function Admin() {
         <div className="user-info">
           {user.name}
           <button onClick={() => router.push('/')}>Home</button>
-          <button onClick={() => router.push('/results')}>View Results</button>
+          {/* <button onClick={() => router.push('/results')}>View Results</button> */}
         </div>
         <div style={{ clear: 'both' }}></div>
       </div>

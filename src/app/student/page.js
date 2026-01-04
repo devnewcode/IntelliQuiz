@@ -344,7 +344,7 @@ export default function Student() {
         )}
 
         <button onClick={backToQuizList}>Back to Quiz List</button>
-        <button onClick={() => router.push('/results')}>View All Results</button>
+        {/* <button onClick={() => router.push('/results')}>View All Results</button> */}
       </div>
     )
   }
@@ -472,7 +472,7 @@ export default function Student() {
         <div className="user-info">
           {user.name}
           <button onClick={() => router.push('/')}>Home</button>
-          <button onClick={() => router.push('/results')}>View Results</button>
+          {/* <button onClick={() => router.push('/results')}>View Results</button> */}
         </div>
         <div style={{ clear: 'both' }}></div>
       </div>

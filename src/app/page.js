@@ -98,12 +98,12 @@ export default function Home() {
               >
                 Go to Admin Panel
               </button>
-              <button 
+              {/* <button 
                 onClick={() => router.push('/results')}
                 style={{ fontSize: '16px', padding: '15px 30px' }}
               >
                 View All Results
-              </button>
+              </button> */}
             </div>
           ) : (
             <div>
@@ -113,12 +113,12 @@ export default function Home() {
               >
                 Take Quiz
               </button>
-              <button 
+              {/* <button 
                 onClick={() => router.push('/results')}
                 style={{ fontSize: '16px', padding: '15px 30px' }}
               >
                 View My Results
-              </button>
+              </button> */}
             </div>
           )}
           
@@ -155,12 +155,12 @@ export default function Home() {
           {user.role === 'admin' ? (
             <div>
               <button onClick={() => router.push('/admin')}>Admin Panel</button>
-              <button onClick={() => router.push('/results')}>View All Results</button>
+              {/* <button onClick={() => router.push('/results')}>View All Results</button> */}
             </div>
           ) : (
             <div>
               <button onClick={() => router.push('/student')}>Take Quiz</button>
-              <button onClick={() => router.push('/results')}>View My Results</button>
+              {/* <button onClick={() => router.push('/results')}>View My Results</button> */}
             </div>
           )}
         </div>
