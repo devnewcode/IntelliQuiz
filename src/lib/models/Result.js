@@ -1,4 +1,6 @@
 import mongoose from 'mongoose'
+import './Quiz'
+import './User'
 
 const ResultSchema = new mongoose.Schema({
   quiz: {
