@@ -30,7 +30,6 @@ export async function DELETE(request, { params }) {
     // Find and delete the quiz
     const deletedQuiz = await Quiz.findOneAndDelete({ 
       _id: quizId,
-      createdBy: decoded.id // Only allow deletion of own quizzes
     })
 
     if (!deletedQuiz) {

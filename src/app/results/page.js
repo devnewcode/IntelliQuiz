@@ -85,7 +85,7 @@ export default function Results() {
     avgScore: studentList.length > 0
       ? Math.round(studentList.reduce((a, s) => a + s.avgScore, 0) / studentList.length)
       : 0,
-    topStudent: studentList.sort((a, b) => b.avgScore - a.avgScore)[0]?.user?.name || '—'
+    topStudent: [...studentList].sort((a, b) => b.avgScore - a.avgScore)[0]?.user?.name || '—'
   }
 
   // ── Student own stats ──────────────────────────────
