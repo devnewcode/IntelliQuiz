@@ -2,23 +2,17 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../../lib/authContext'
+import styles from './page.module.css'
 
 export default function Admin() {
   const { user, loading } = useAuth()
   const [quizzes, setQuizzes] = useState([])
   const [newQuiz, setNewQuiz] = useState({
-    title: '',
-    description: '',
-    category: 'General',
-    difficulty: 'medium',
-    timeLimit: 30,
-    timerEnabled: true,
-    questions: []
+    title: '', description: '', category: 'General',
+    difficulty: 'medium', timeLimit: 30, timerEnabled: true, questions: []
   })
   const [currentQuestion, setCurrentQuestion] = useState({
-    question: '',
-    options: ['', '', '', ''],
-    correctAnswer: 0
+    question: '', options: ['', '', '', ''], correctAnswer: 0
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
@@ -26,368 +20,244 @@ export default function Admin() {
 
   useEffect(() => {
     if (!loading) {
-      if (!user) {
-        router.push('/')
-        return
-      }
-      if (user.role !== 'admin') {
-        router.push('/')
-        return
-      }
+      if (!user) { router.push('/'); return }
+      if (user.role !== 'admin') { router.push('/'); return }
     }
     fetchQuizzes()
   }, [user, loading, router])
 
   const fetchQuizzes = async () => {
     try {
-      const response = await fetch('/api/quizzes')
-      const data = await response.json()
-      if (response.ok) {
-        setQuizzes(data.quizzes)
-      }
-    } catch (error) {
-      console.error('Failed to fetch quizzes:', error)
-    }
+      const res = await fetch('/api/quizzes')
+      const data = await res.json()
+      if (res.ok) setQuizzes(data.quizzes)
+    } catch (e) { console.error(e) }
   }
 
   const addQuestion = () => {
-    if (!currentQuestion.question.trim() || currentQuestion.options.some(opt => !opt.trim())) {
-      alert('Please fill all question fields')
-      return
+    if (!currentQuestion.question.trim() || currentQuestion.options.some(o => !o.trim())) {
+      alert('Please fill all question fields'); return
     }
-
-    setNewQuiz({
-      ...newQuiz,
-      questions: [...newQuiz.questions, { ...currentQuestion, id: Date.now().toString() }]
-    })
-
-    setCurrentQuestion({
-      question: '',
-      options: ['', '', '', ''],
-      correctAnswer: 0
-    })
+    setNewQuiz({ ...newQuiz, questions: [...newQuiz.questions, { ...currentQuestion, id: Date.now().toString() }] })
+    setCurrentQuestion({ question: '', options: ['', '', '', ''], correctAnswer: 0 })
   }
 
-  const removeQuestion = (questionId) => {
-    setNewQuiz({
-      ...newQuiz,
-      questions: newQuiz.questions.filter(q => q.id !== questionId)
-    })
-  }
+  const removeQuestion = (id) =>
+    setNewQuiz({ ...newQuiz, questions: newQuiz.questions.filter(q => q.id !== id) })
 
   const deleteQuiz = async (quizId, quizTitle) => {
-    if (!confirm(`Are you sure you want to delete the quiz "${quizTitle}"?\n\nThis action cannot be undone.`)) {
-      return
-    }
-
+    if (!confirm(`Delete "${quizTitle}"? This cannot be undone.`)) return
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`/api/quizzes/${quizId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setMessage('Quiz deleted successfully!')
-        fetchQuizzes()
-      } else {
-        setMessage(data.message || 'Failed to delete quiz')
-      }
-    } catch (error) {
-      setMessage('Failed to delete quiz')
-    }
+      const res = await fetch(`/api/quizzes/${quizId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } })
+      const data = await res.json()
+      if (res.ok) { setMessage('Quiz deleted successfully!'); fetchQuizzes() }
+      else setMessage(data.message || 'Failed to delete quiz')
+    } catch { setMessage('Failed to delete quiz') }
   }
 
   const saveQuiz = async () => {
     if (!newQuiz.title.trim() || newQuiz.questions.length === 0) {
-      alert('Please provide quiz title and at least one question')
-      return
+      alert('Please provide quiz title and at least one question'); return
     }
-
-    setIsSubmitting(true)
-    setMessage('')
-
+    setIsSubmitting(true); setMessage('')
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('/api/quizzes', {
+      const res = await fetch('/api/quizzes', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(newQuiz)
       })
-
-      const data = await response.json()
-
-      if (response.ok) {
+      const data = await res.json()
+      if (res.ok) {
         setMessage('Quiz created successfully!')
-        setNewQuiz({
-          title: '',
-          description: '',
-          category: 'General',
-          difficulty: 'medium',
-          timeLimit: 30,
-          timerEnabled: true,
-          questions: []
-        })
+        setNewQuiz({ title: '', description: '', category: 'General', difficulty: 'medium', timeLimit: 30, timerEnabled: true, questions: [] })
         fetchQuizzes()
-      } else {
-        setMessage(data.message || 'Failed to create quiz')
-      }
-    } catch (error) {
-      setMessage('Failed to create quiz')
-    }
+      } else setMessage(data.message || 'Failed to create quiz')
+    } catch { setMessage('Failed to create quiz') }
     setIsSubmitting(false)
   }
 
-  if (loading) {
-    return (
-      <div className="container">
-        <div className="loading">Loading...</div>
-      </div>
-    )
-  }
-
-  if (!user || user.role !== 'admin') {
-    return (
-      <div className="container">
-        <div className="error">Access denied. Admin privileges required.</div>
-      </div>
-    )
-  }
+  if (loading) return <div className={styles.container}><div className={styles.loading}>Loading...</div></div>
+  if (!user || user.role !== 'admin') return (
+    <div className={styles.container}>
+      <div className={`${styles.alert} ${styles.alertError}`}>Access denied. Admin privileges required.</div>
+    </div>
+  )
 
   return (
-    <div className="container">
-      <div className="nav">
-        <h1>Admin Panel</h1>
-        <div className="user-info">
-          {user.name}
-          <button onClick={() => router.push('/')}>Home</button>
-          <button onClick={() => router.push('/results')}>View Results</button>
+    <div className={styles.container}>
+
+      {/* ── Header ── */}
+      <div className={styles.header}>
+        <h1 className={styles.headerTitle}>Admin Panel</h1>
+        <div className={styles.headerActions}>
+          <span className={styles.userName}>{user.name}</span>
+          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => router.push('/')}>Home</button>
+          <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => router.push('/results')}>View Results</button>
         </div>
-        <div style={{ clear: 'both' }}></div>
       </div>
 
+      {/* ── Alert ── */}
       {message && (
-        <div className={message.includes('success') ? 'success' : 'error'}>
+        <div className={`${styles.alert} ${message.includes('success') ? styles.alertSuccess : styles.alertError}`}>
           {message}
         </div>
       )}
 
-      <h2>Create New Quiz</h2>
-      
-      <div className="form-group">
-        <label>Quiz Title:</label>
-        <input
-          type="text"
-          value={newQuiz.title}
-          onChange={(e) => setNewQuiz({...newQuiz, title: e.target.value})}
-          placeholder="Enter quiz title"
-          disabled={isSubmitting}
-        />
-      </div>
+      {/* ── Create Quiz Card ── */}
+      <div className={styles.card}>
+        <h2 className={styles.sectionTitle}>Create New Quiz</h2>
 
-      <div className="form-group">
-        <label>Description:</label>
-        <textarea
-          value={newQuiz.description}
-          onChange={(e) => setNewQuiz({...newQuiz, description: e.target.value})}
-          placeholder="Enter quiz description"
-          rows="3"
-          disabled={isSubmitting}
-        />
-      </div>
-
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-        <div className="form-group" style={{ flex: 1 }}>
-          <label>Category:</label>
-          <input
-            type="text"
-            value={newQuiz.category}
-            onChange={(e) => setNewQuiz({...newQuiz, category: e.target.value})}
-            placeholder="e.g., Math, Science, History"
-            disabled={isSubmitting}
-          />
+        <div className={styles.formGroup}>
+          <label className={styles.label}>Quiz Title</label>
+          <input className={styles.input} type="text" value={newQuiz.title}
+            onChange={e => setNewQuiz({ ...newQuiz, title: e.target.value })}
+            placeholder="Enter quiz title" disabled={isSubmitting} />
         </div>
 
-        <div className="form-group" style={{ flex: 1 }}>
-          <label>Difficulty:</label>
-          <select
-            value={newQuiz.difficulty}
-            onChange={(e) => setNewQuiz({...newQuiz, difficulty: e.target.value})}
-            disabled={isSubmitting}
-          >
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-          </select>
+        <div className={styles.formGroup}>
+          <label className={styles.label}>Description</label>
+          <textarea className={styles.textarea} value={newQuiz.description}
+            onChange={e => setNewQuiz({ ...newQuiz, description: e.target.value })}
+            placeholder="Enter quiz description" rows="3" disabled={isSubmitting} />
+        </div>
+
+        <div className={styles.flexRow}>
+          <div className={`${styles.formGroup} ${styles.flexColumn}`}>
+            <label className={styles.label}>Category</label>
+            <input className={styles.input} type="text" value={newQuiz.category}
+              onChange={e => setNewQuiz({ ...newQuiz, category: e.target.value })}
+              placeholder="e.g., Math, Science, History" disabled={isSubmitting} />
+          </div>
+          <div className={`${styles.formGroup} ${styles.flexColumn}`}>
+            <label className={styles.label}>Difficulty</label>
+            <select className={styles.select} value={newQuiz.difficulty}
+              onChange={e => setNewQuiz({ ...newQuiz, difficulty: e.target.value })} disabled={isSubmitting}>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+        </div>
+
+        <div className={styles.flexRow}>
+          <div className={`${styles.formGroup} ${styles.flexColumn}`}>
+            <label className={styles.checkboxLabel}>
+              <input className={styles.checkbox} type="checkbox"
+                checked={newQuiz.timerEnabled}
+                onChange={e => setNewQuiz({ ...newQuiz, timerEnabled: e.target.checked })}
+                disabled={isSubmitting} />
+              Enable Timer
+            </label>
+          </div>
+          {newQuiz.timerEnabled && (
+            <div className={`${styles.formGroup} ${styles.flexColumn}`}>
+              <label className={styles.label}>Time Limit (minutes)</label>
+              <input className={styles.input} type="number" value={newQuiz.timeLimit}
+                onChange={e => setNewQuiz({ ...newQuiz, timeLimit: parseInt(e.target.value) || 30 })}
+                min="1" max="300" disabled={isSubmitting} placeholder="30" />
+            </div>
+          )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-        <div className="form-group" style={{ flex: 1 }}>
-          <label>
-            <input
-              type="checkbox"
-              checked={newQuiz.timerEnabled}
-              onChange={(e) => setNewQuiz({...newQuiz, timerEnabled: e.target.checked})}
-              disabled={isSubmitting}
-              style={{ width: 'auto', marginRight: '10px' }}
-            />
-            Enable Timer
-          </label>
+      {/* ── Add Question Card ── */}
+      <div className={styles.card}>
+        <h3 className={styles.sectionTitle}>Add Question</h3>
+
+        <div className={styles.formGroup}>
+          <label className={styles.label}>Question</label>
+          <textarea className={styles.textarea} value={currentQuestion.question}
+            onChange={e => setCurrentQuestion({ ...currentQuestion, question: e.target.value })}
+            placeholder="Enter your question here... You can write multiple lines, code snippets, or long explanations."
+            disabled={isSubmitting} rows="4" />
+          <span className={styles.inputHint}>Tip: You can write multi-line questions, code examples, or detailed explanations.</span>
         </div>
 
-        {newQuiz.timerEnabled && (
-          <div className="form-group" style={{ flex: 1 }}>
-            <label>Time Limit (minutes):</label>
-            <input
-              type="number"
-              value={newQuiz.timeLimit}
-              onChange={(e) => setNewQuiz({...newQuiz, timeLimit: parseInt(e.target.value) || 30})}
-              min="1"
-              max="300"
-              disabled={isSubmitting}
-              placeholder="30"
-            />
+        {currentQuestion.options.map((option, index) => (
+          <div key={index} className={styles.formGroup}>
+            <label className={styles.label}>Option {index + 1}</label>
+            <div className={styles.radioGroup}>
+              <input className={styles.input} type="text" value={option}
+                onChange={e => {
+                  const opts = [...currentQuestion.options]
+                  opts[index] = e.target.value
+                  setCurrentQuestion({ ...currentQuestion, options: opts })
+                }}
+                placeholder={`Enter option ${index + 1}`} disabled={isSubmitting} />
+              <input className={styles.radioInput} type="radio" name="correctAnswer"
+                checked={currentQuestion.correctAnswer === index}
+                onChange={() => setCurrentQuestion({ ...currentQuestion, correctAnswer: index })}
+                disabled={isSubmitting} />
+              <span className={styles.radioLabel}>Correct</span>
+            </div>
+          </div>
+        ))}
+
+        <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={addQuestion} disabled={isSubmitting}>
+          + Add Question
+        </button>
+
+        {/* Questions preview */}
+        {newQuiz.questions.length > 0 && (
+          <div className={styles.questionsSummary}>
+            <h3 className={styles.summaryTitle}>Questions Added ({newQuiz.questions.length})</h3>
+            {newQuiz.questions.map((question, index) => (
+              <div key={question.id} className={styles.questionCard}>
+                <div className={styles.questionHeader}>Question {index + 1}</div>
+                <div className={styles.questionText}>{question.question}</div>
+                <div className={styles.optionList}>
+                  {question.options.map((opt, i) => (
+                    <div key={i} className={`${styles.optionItem} ${question.correctAnswer === i ? styles.correctOption : ''}`}>
+                      {i + 1}. {opt}{question.correctAnswer === i && ' ✓'}
+                    </div>
+                  ))}
+                </div>
+                <button className={`${styles.btn} ${styles.btnDanger}`}
+                  onClick={() => removeQuestion(question.id)} disabled={isSubmitting}>
+                  Remove
+                </button>
+              </div>
+            ))}
           </div>
         )}
-      </div>
 
-      <h3>Add Question</h3>
-      <div className="form-group">
-        <label>Question:</label>
-        <textarea
-          value={currentQuestion.question}
-          onChange={(e) => setCurrentQuestion({...currentQuestion, question: e.target.value})}
-          placeholder="Enter your question here... You can write multiple lines, code snippets, or long explanations."
-          disabled={isSubmitting}
-          rows="4"
-          style={{ 
-            fontFamily: 'monospace',
-            fontSize: '14px',
-            lineHeight: '1.5',
-            resize: 'vertical',
-            minHeight: '100px'
-          }}
-        />
-        <small style={{ color: '#64748b', fontSize: '12px' }}>
-          Tip: You can write multi-line questions, code examples, or detailed explanations.
-        </small>
-      </div>
-
-      {currentQuestion.options.map((option, index) => (
-        <div key={index} className="form-group">
-          <label>Option {index + 1}:</label>
-          <input
-            type="text"
-            value={option}
-            onChange={(e) => {
-              const newOptions = [...currentQuestion.options]
-              newOptions[index] = e.target.value
-              setCurrentQuestion({...currentQuestion, options: newOptions})
-            }}
-            placeholder={`Enter option ${index + 1}`}
-            disabled={isSubmitting}
-          />
-          <input
-            type="radio"
-            name="correctAnswer"
-            checked={currentQuestion.correctAnswer === index}
-            onChange={() => setCurrentQuestion({...currentQuestion, correctAnswer: index})}
-            style={{ width: 'auto', marginLeft: '10px' }}
-            disabled={isSubmitting}
-          />
-          <span style={{ marginLeft: '5px' }}>Correct Answer</span>
+        <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '2px solid #f1f5f9' }}>
+          <button className={`${styles.btn} ${styles.btnSuccess}`} onClick={saveQuiz} disabled={isSubmitting}>
+            {isSubmitting ? 'Creating Quiz...' : '✓ Create Quiz'}
+          </button>
         </div>
-      ))}
-
-      <button onClick={addQuestion} disabled={isSubmitting}>Add Question</button>
-
-      {newQuiz.questions.length > 0 && (
-        <div>
-          <h3>Questions Added ({newQuiz.questions.length})</h3>
-          {newQuiz.questions.map((question, index) => (
-            <div key={question.id} className="quiz-item">
-              <h4>Q{index + 1}:</h4>
-              <div style={{ 
-                background: '#f8fafc', 
-                padding: '12px', 
-                borderRadius: '8px',
-                marginBottom: '12px',
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'monospace',
-                fontSize: '14px',
-                border: '1px solid #e2e8f0'
-              }}>
-                {question.question}
-              </div>
-              {question.options.map((option, optIndex) => (
-                <div key={optIndex} className={question.correctAnswer === optIndex ? 'correct-answer' : ''} style={{ padding: '4px 8px', marginBottom: '4px' }}>
-                  {optIndex + 1}. {option}
-                  {question.correctAnswer === optIndex && ' ✓'}
-                </div>
-              ))}
-              <button 
-                className="btn-danger" 
-                onClick={() => removeQuestion(question.id)}
-                disabled={isSubmitting}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div style={{ marginTop: '20px' }}>
-        <button 
-          className="btn-success" 
-          onClick={saveQuiz}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Creating Quiz...' : 'Create Quiz'}
-        </button>
       </div>
 
-      <h2 style={{ marginTop: '40px' }}>Existing Quizzes</h2>
+      {/* ── Existing Quizzes ── */}
+      <h2 className={styles.sectionTitle} style={{ marginTop: '8px' }}>Existing Quizzes</h2>
+
       {quizzes.length === 0 ? (
-        <p>No quizzes created yet.</p>
+        <div className={styles.emptyState}>No quizzes created yet.</div>
       ) : (
         quizzes.map(quiz => (
-          <div key={quiz._id} className="quiz-item">
-            <h3>{quiz.title}</h3>
-            <p><strong>Description:</strong> {quiz.description}</p>
-            <p><strong>Category:</strong> {quiz.category}</p>
-            <p><strong>Difficulty:</strong> {quiz.difficulty}</p>
-            <p><strong>Questions:</strong> {quiz.questions.length}</p>
-            <p><strong>Timer:</strong> {quiz.timerEnabled ? `${quiz.timeLimit} minutes` : 'Disabled'}</p>
-            <p><strong>Created:</strong> {new Date(quiz.createdAt).toLocaleDateString()}</p>
-            <p><strong>Created by:</strong> {quiz.createdBy?.name || 'Unknown'}</p>
-            
-            <div style={{ marginTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button 
-                onClick={() => deleteQuiz(quiz._id, quiz.title)}
-                className="btn-danger"
-                disabled={isSubmitting}
-              >
+          <div key={quiz._id} className={styles.quizItem}>
+            <h3 className={styles.quizTitle}>{quiz.title}</h3>
+            <p className={styles.quizInfo}><span className={styles.quizLabel}>Description: </span>{quiz.description}</p>
+            <p className={styles.quizInfo}><span className={styles.quizLabel}>Category: </span>{quiz.category}</p>
+            <p className={styles.quizInfo}><span className={styles.quizLabel}>Difficulty: </span>{quiz.difficulty}</p>
+            <p className={styles.quizInfo}><span className={styles.quizLabel}>Questions: </span>{quiz.questions.length}</p>
+            <p className={styles.quizInfo}><span className={styles.quizLabel}>Timer: </span>{quiz.timerEnabled ? `${quiz.timeLimit} minutes` : 'Disabled'}</p>
+            <p className={styles.quizInfo}><span className={styles.quizLabel}>Created: </span>{new Date(quiz.createdAt).toLocaleDateString()}</p>
+            <p className={styles.quizInfo}><span className={styles.quizLabel}>By: </span>{quiz.createdBy?.name || 'Unknown'}</p>
+            <div className={styles.quizActions}>
+              <button className={`${styles.btn} ${styles.btnDanger}`}
+                onClick={() => deleteQuiz(quiz._id, quiz.title)} disabled={isSubmitting}>
                 Delete Quiz
               </button>
-              <button 
+              <button className={`${styles.btn} ${styles.btnSecondary}`}
                 onClick={() => {
-                  const confirmed = confirm(`This will show you all questions in "${quiz.title}"`)
-                  if (confirmed) {
-                    console.log('Quiz details:', quiz.questions)
-                    alert(`This quiz has ${quiz.questions.length} questions. Check browser console for details.`)
+                  if (confirm(`Show questions for "${quiz.title}"?`)) {
+                    console.log('Quiz questions:', quiz.questions)
+                    alert(`${quiz.questions.length} questions. See browser console for details.`)
                   }
-                }}
-                style={{ backgroundColor: '#6366f1' }}
-              >
+                }}>
                 Preview Questions
               </button>
             </div>
