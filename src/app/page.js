@@ -9,7 +9,8 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('login')
   const [loginForm, setLoginForm] = useState({ username: '', password: '' })
   const [registerForm, setRegisterForm] = useState({
-    username: '', password: '', name: '', email: '', role: 'student'
+    username: '', password: '', name: '', email: ''
+    // ← role removed — students only on main page
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -27,7 +28,8 @@ export default function Home() {
 
   const handleRegister = async (e) => {
     e.preventDefault(); setError(''); setSuccess(''); setIsSubmitting(true)
-    const result = await register(registerForm)
+    // Always register as student from main page
+    const result = await register({ ...registerForm, role: 'student' })
     if (result.success) { setSuccess('Account created successfully!'); setShowWelcome(true) }
     else setError(result.error)
     setIsSubmitting(false)
@@ -38,7 +40,6 @@ export default function Home() {
     router.push(user.role === 'admin' ? '/admin' : '/student')
   }
 
-  /* ── Shared Navbar ── */
   const Navbar = () => (
     <nav className={styles.navbar}>
       <div className={styles.navContent}>
@@ -61,7 +62,6 @@ export default function Home() {
     )
   }
 
-  /* ── Welcome screen ── */
   if (user && showWelcome) {
     return (
       <div className={styles.container}>
@@ -99,7 +99,6 @@ export default function Home() {
     )
   }
 
-  /* ── Dashboard screen ── */
   if (user && !showWelcome) {
     return (
       <div className={styles.container}>
@@ -133,7 +132,6 @@ export default function Home() {
     )
   }
 
-  /* ── Auth screen ── */
   return (
     <div className={styles.authContainer}>
       <div className={styles.authCard}>
@@ -203,15 +201,7 @@ export default function Home() {
                 onChange={e => setRegisterForm({...registerForm, password: e.target.value})}
                 required disabled={isSubmitting} placeholder="Create a password (min 6 characters)" minLength={6} />
             </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Role</label>
-              <select className={styles.select} value={registerForm.role}
-                onChange={e => setRegisterForm({...registerForm, role: e.target.value})}
-                disabled={isSubmitting}>
-                <option value="student">Student</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
+            {/* ← Role dropdown REMOVED — students only */}
             <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
               {isSubmitting ? 'Creating Account...' : 'Create Account'}
             </button>
@@ -227,7 +217,7 @@ export default function Home() {
             </div>
             <div className={styles.infoItem}>
               <span className={styles.infoIcon}>👨‍💼</span>
-              <div><strong>Admins:</strong> Create and manage quizzes, view all student results</div>
+              <div><strong>Admins:</strong> Access the admin panel via the dedicated admin portal</div>
             </div>
             <div className={styles.infoItem}>
               <span className={styles.infoIcon}>🔒</span>
