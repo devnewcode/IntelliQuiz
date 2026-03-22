@@ -48,6 +48,50 @@ export default function Results() {
     return '📚'
   }
 
+  // ── CSV EXPORT ──
+  // Converts all results into a downloadable CSV file.
+  // Each row = one quiz attempt. File is named with today's date.
+  const exportToCSV = () => {
+    const headers = [
+      'Student Name',
+      'Email',
+      'Quiz Title',
+      'Score (%)',
+      'Correct',
+      'Total Questions',
+      'Time Taken',
+      'Date'
+    ]
+
+    const rows = results.map(r => [
+      r.user?.name || 'Unknown',
+      r.user?.email || 'Unknown',
+      r.quiz?.title || 'Unknown Quiz',
+      r.score,
+      r.correctAnswers,
+      r.totalQuestions,
+      r.timeTaken > 0
+        ? `${Math.floor(r.timeTaken / 60)}m ${r.timeTaken % 60}s`
+        : '—',
+      new Date(r.completedAt).toLocaleDateString() +
+        ' ' +
+        new Date(r.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    ])
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `intelliquiz-results-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+  // ── END CSV EXPORT ──
+
   // ── Group results by student (admin only) ──────────
   const groupedByStudent = results.reduce((acc, result) => {
     if (!result.user) return acc
@@ -140,6 +184,13 @@ export default function Results() {
           {user.role === 'admin' && (
             <button onClick={() => router.push('/admin')} className={styles.navBtnPrimary}>Admin Panel</button>
           )}
+          {/* ── CSV EXPORT BUTTON — admin only, hidden when no results ── */}
+          {user.role === 'admin' && results.length > 0 && (
+            <button onClick={exportToCSV} className={styles.navBtn}>
+              ⬇ Export CSV
+            </button>
+          )}
+          {/* ── END CSV EXPORT BUTTON ── */}
         </div>
       </div>
 

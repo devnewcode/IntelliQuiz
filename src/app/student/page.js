@@ -18,6 +18,12 @@ export default function Student() {
   const [timerInterval, setTimerInterval] = useState(null)
   const [timeExpired, setTimeExpired] = useState(false)
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
+
+  // ── ANTI-CHEAT STATE ── tab switch warning counter and visibility flag
+  const [tabSwitchCount, setTabSwitchCount] = useState(0)
+  const [showTabWarning, setShowTabWarning] = useState(false)
+  // ── END ANTI-CHEAT STATE ──
+
   const router = useRouter()
 
   useEffect(() => { return () => { if (timerInterval) clearInterval(timerInterval) } }, [timerInterval])
@@ -30,6 +36,31 @@ export default function Student() {
     fetchQuizzes()
   }, [user, loading, router])
 
+  // ── TAB SWITCH DETECTION ──
+  // Fires when student switches to another tab or minimizes the window.
+  // First violation shows a warning. Second violation auto-submits the quiz.
+  useEffect(() => {
+    if (!selectedQuiz || showResults) return   // only active while a quiz is in progress
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        setTabSwitchCount(prev => {
+          const next = prev + 1
+          if (next === 1) {
+            setShowTabWarning(true)            // first offence: show warning banner
+          } else if (next >= 2) {
+            submitQuizManually()               // second offence: force submit
+          }
+          return next
+        })
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [selectedQuiz, showResults])
+  // ── END TAB SWITCH DETECTION ──
+
   const fetchQuizzes = async () => {
     try {
       const res = await fetch('/api/quizzes')
@@ -40,6 +71,26 @@ export default function Student() {
 
   const startQuiz = (quiz) => {
     if (!quiz?.questions?.length) { alert('This quiz has no questions.'); return }
+
+    // ── QUESTION SHUFFLE ──
+    // Shuffles the order of questions AND the order of each question's options.
+    // Recalculates correctAnswer index after options are shuffled so scoring still works.
+    const shuffleArray = (arr) => [...arr].sort(() => Math.random() - 0.5)
+
+    const shuffledQuestions = shuffleArray(quiz.questions).map(q => {
+      const correctAnswerText = q.options[q.correctAnswer]   // remember the correct answer text
+      const shuffledOptions = shuffleArray(q.options)         // shuffle the options array
+      const newCorrectIndex = shuffledOptions.indexOf(correctAnswerText) // find new index
+      return { ...q, options: shuffledOptions, correctAnswer: newCorrectIndex }
+    })
+
+    quiz = { ...quiz, questions: shuffledQuestions }
+    // ── END QUESTION SHUFFLE ──
+
+    // reset tab switch count each time a new quiz starts
+    setTabSwitchCount(0)
+    setShowTabWarning(false)
+
     setSelectedQuiz(quiz); setCurrentQuestionIndex(0); setAnswers({})
     setShowResults(false); setScore(0); setCorrectAnswersCount(0)
     setStartTime(new Date()); setTimeExpired(false); setIsSubmitting(false)
@@ -120,6 +171,8 @@ export default function Student() {
     setSelectedQuiz(null); setShowResults(false); setStartTime(null)
     setTimeLeft(null); setTimeExpired(false); setIsSubmitting(false)
     setAnswers({}); setCurrentQuestionIndex(0)
+    // reset anti-cheat state on exit
+    setTabSwitchCount(0); setShowTabWarning(false)
   }
 
   const getScoreEmoji = (s) => s >= 80 ? '🏆' : s >= 60 ? '⭐' : s >= 40 ? '👍' : '📚'
@@ -216,7 +269,22 @@ export default function Student() {
     const answeredCount = Object.keys(answers).length
 
     return (
-      <div className={styles.container}>
+      // ── NO COPY-PASTE ──
+      // onCopy / onPaste: blocks Ctrl+C and Ctrl+V on text inside the quiz
+      // onContextMenu: disables right-click so students can't use "Search Google for..."
+      // onKeyDown: blocks Ctrl+C, Ctrl+V, Ctrl+U (view source), Ctrl+S, F12 (devtools)
+      <div
+        className={styles.container}
+        onCopy={(e) => e.preventDefault()}
+        onPaste={(e) => e.preventDefault()}
+        onContextMenu={(e) => e.preventDefault()}
+        onKeyDown={(e) => {
+          if (e.ctrlKey && ['c', 'v', 'u', 's'].includes(e.key.toLowerCase())) e.preventDefault()
+          if (e.key === 'F12') e.preventDefault()
+        }}
+      >
+      {/* ── END NO COPY-PASTE ── */}
+
         <div className={styles.nav}>
           <h1 className={styles.navTitle}>{selectedQuiz.title}</h1>
           <div className={styles.navRight}>
@@ -235,6 +303,21 @@ export default function Student() {
         {timeExpired && (
           <div className={styles.alertExpired}>⏰ Time expired! Submitting your quiz...</div>
         )}
+
+        {/* ── TAB SWITCH WARNING BANNER ── */}
+        {/* Shows after first tab switch. Disappears on dismiss. Second switch = auto submit. */}
+        {showTabWarning && tabSwitchCount < 2 && (
+          <div className={styles.alertWarning}>
+            ⚠️ Warning ({tabSwitchCount}/2) — You switched tabs! Do it again and your quiz will be auto-submitted.
+            <button
+              onClick={() => setShowTabWarning(false)}
+              style={{ marginLeft: 12, cursor: 'pointer', fontWeight: 600 }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+        {/* ── END TAB SWITCH WARNING BANNER ── */}
 
         {/* Progress bar */}
         <div className={styles.progressBar}>
@@ -274,9 +357,8 @@ export default function Student() {
                 <div key={i}
                   className={`${styles.optionItem} ${isSelected ? styles.optionSelected : ''} ${isSubmitting || timeExpired ? styles.optionDisabled : ''}`}
                   onClick={() => handleAnswer(questionId, i)}>
-                  <div className={`${styles.optionRadio} ${isSelected ? styles.optionRadioSelected : ''}`}>
-                    {isSelected && <div style={{width:8,height:8,borderRadius:'50%',background:'#fff'}}></div>}
-                  </div>
+                  <div className={`${styles.optionRadio} ${isSelected ? styles.optionRadioSelected : ''}`} />
+                    
                   <span className={`${styles.optionText} ${isSelected ? styles.optionTextSelected : ''}`}>{option}</span>
                 </div>
               )
