@@ -6,6 +6,7 @@ import styles from './page.module.css'
 
 export default function Admin() {
   const { user, loading } = useAuth()
+  const [previewQuizId, setPreviewQuizId] = useState(null) // which quiz is expanded
   const [quizzes, setQuizzes] = useState([])
   const [newQuiz, setNewQuiz] = useState({
     title: '', description: '', category: 'General',
@@ -415,39 +416,59 @@ export default function Admin() {
       </div>
 
       {/* ── Existing Quizzes ── */}
-      <h2 className={styles.sectionTitle} style={{ marginTop: '8px' }}>Existing Quizzes</h2>
+<h2 className={styles.sectionTitle} style={{ marginTop: '8px' }}>Existing Quizzes</h2>
 
-      {quizzes.length === 0 ? (
-        <div className={styles.emptyState}>No quizzes created yet.</div>
-      ) : (
-        quizzes.map(quiz => (
-          <div key={quiz._id} className={styles.quizItem}>
-            <h3 className={styles.quizTitle}>{quiz.title}</h3>
-            <p className={styles.quizInfo}><span className={styles.quizLabel}>Description: </span>{quiz.description}</p>
-            <p className={styles.quizInfo}><span className={styles.quizLabel}>Category: </span>{quiz.category}</p>
-            <p className={styles.quizInfo}><span className={styles.quizLabel}>Difficulty: </span>{quiz.difficulty}</p>
-            <p className={styles.quizInfo}><span className={styles.quizLabel}>Questions: </span>{quiz.questions.length}</p>
-            <p className={styles.quizInfo}><span className={styles.quizLabel}>Timer: </span>{quiz.timerEnabled ? `${quiz.timeLimit} minutes` : 'Disabled'}</p>
-            <p className={styles.quizInfo}><span className={styles.quizLabel}>Created: </span>{new Date(quiz.createdAt).toLocaleDateString()}</p>
-            <p className={styles.quizInfo}><span className={styles.quizLabel}>By: </span>{quiz.createdBy?.name || 'Unknown'}</p>
-            <div className={styles.quizActions}>
-              <button className={`${styles.btn} ${styles.btnDanger}`}
-                onClick={() => deleteQuiz(quiz._id, quiz.title)} disabled={isSubmitting}>
-                Delete Quiz
-              </button>
-              <button className={`${styles.btn} ${styles.btnSecondary}`}
-                onClick={() => {
-                  if (confirm(`Show questions for "${quiz.title}"?`)) {
-                    console.log('Quiz questions:', quiz.questions)
-                    alert(`${quiz.questions.length} questions. See browser console for details.`)
-                  }
-                }}>
-                Preview Questions
-              </button>
+{quizzes.length === 0 ? (
+  <div className={styles.emptyState}>No quizzes created yet.</div>
+) : (
+  quizzes.map(quiz => (
+    <div key={quiz._id} className={styles.quizItem}>
+      <h3 className={styles.quizTitle}>{quiz.title}</h3>
+      <p className={styles.quizInfo}><span className={styles.quizLabel}>Description: </span>{quiz.description}</p>
+      <p className={styles.quizInfo}><span className={styles.quizLabel}>Category: </span>{quiz.category}</p>
+      <p className={styles.quizInfo}><span className={styles.quizLabel}>Difficulty: </span>{quiz.difficulty}</p>
+      <p className={styles.quizInfo}><span className={styles.quizLabel}>Questions: </span>{quiz.questions.length}</p>
+      <p className={styles.quizInfo}><span className={styles.quizLabel}>Timer: </span>{quiz.timerEnabled ? `${quiz.timeLimit} minutes` : 'Disabled'}</p>
+      <p className={styles.quizInfo}><span className={styles.quizLabel}>Created: </span>{new Date(quiz.createdAt).toLocaleDateString()}</p>
+      <p className={styles.quizInfo}><span className={styles.quizLabel}>By: </span>{quiz.createdBy?.name || 'Unknown'}</p>
+
+      <div className={styles.quizActions}>
+        <button className={`${styles.btn} ${styles.btnDanger}`}
+          onClick={() => deleteQuiz(quiz._id, quiz.title)} disabled={isSubmitting}>
+          Delete Quiz
+        </button>
+        {/* ── PREVIEW BUTTON — toggles inline panel ── */}
+        <button className={`${styles.btn} ${styles.btnSecondary}`}
+          onClick={() => setPreviewQuizId(previewQuizId === quiz._id ? null : quiz._id)}>
+          {previewQuizId === quiz._id ? 'Hide Questions' : 'Preview Questions'}
+        </button>
+      </div>
+
+      {/* ── INLINE QUESTIONS PANEL ── */}
+      {previewQuizId === quiz._id && (
+        <div className={styles.questionsSummary} style={{ marginTop: '20px' }}>
+          <h3 className={styles.summaryTitle}>
+            {quiz.questions.length} Question{quiz.questions.length !== 1 ? 's' : ''}
+          </h3>
+          {quiz.questions.map((q, i) => (
+            <div key={q._id || i} className={styles.questionCard}>
+              <div className={styles.questionHeader}>Question {i + 1}</div>
+              <div className={styles.questionText}>{q.question}</div>
+              <div className={styles.optionList}>
+                {q.options.map((opt, j) => (
+                  <div key={j} className={`${styles.optionItem} ${q.correctAnswer === j ? styles.correctOption : ''}`}>
+                    {j + 1}. {opt}{q.correctAnswer === j && ' ✓'}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
+
+    </div>
+  ))
+)}
     </div>
   )
 }
