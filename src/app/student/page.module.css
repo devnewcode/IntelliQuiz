@@ -305,3 +305,30 @@
   .scoreActions { flex-direction: column; }
   .btnPrimary, .btnOutline { width: 100%; justify-content: center; }
 }
+
+/* ── AI Explanation Box — added for wrong answer feedback feature ── */
+.aiExplanation {
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: rgba(139,92,246,.08);
+  border: 1.5px solid rgba(139,92,246,.2);
+  border-radius: 10px;
+  animation: fadeIn .3s ease both;
+}
+
+.aiExplanationLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #a78bfa;
+  display: block;
+  margin-bottom: 6px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+
+.aiExplanationText {
+  font-size: 14px;
+  color: #cbd5e1;
+  line-height: 1.7;
+  margin: 0;
+}

@@ -19,10 +19,17 @@ export default function Student() {
   const [timeExpired, setTimeExpired] = useState(false)
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
 
-  // ── ANTI-CHEAT STATE ── tab switch warning counter and visibility flag
+  // ── ANTI-CHEAT STATE ──
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
   const [showTabWarning, setShowTabWarning] = useState(false)
   // ── END ANTI-CHEAT STATE ──
+
+  // ── AI EXPLANATION STATE ──
+  // explanations: [{ questionId, explanation }]
+  // isFetchingExplanations: shows a loading state in the review section
+  const [explanations, setExplanations] = useState([])
+  const [isFetchingExplanations, setIsFetchingExplanations] = useState(false)
+  // ── END AI EXPLANATION STATE ──
 
   const router = useRouter()
 
@@ -37,25 +44,18 @@ export default function Student() {
   }, [user, loading, router])
 
   // ── TAB SWITCH DETECTION ──
-  // Fires when student switches to another tab or minimizes the window.
-  // First violation shows a warning. Second violation auto-submits the quiz.
   useEffect(() => {
-    if (!selectedQuiz || showResults) return   // only active while a quiz is in progress
-
+    if (!selectedQuiz || showResults) return
     const handleVisibility = () => {
       if (document.visibilityState === 'hidden') {
         setTabSwitchCount(prev => {
           const next = prev + 1
-          if (next === 1) {
-            setShowTabWarning(true)            // first offence: show warning banner
-          } else if (next >= 2) {
-            submitQuizManually()               // second offence: force submit
-          }
+          if (next === 1) setShowTabWarning(true)
+          else if (next >= 2) submitQuizManually()
           return next
         })
       }
     }
-
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [selectedQuiz, showResults])
@@ -73,23 +73,19 @@ export default function Student() {
     if (!quiz?.questions?.length) { alert('This quiz has no questions.'); return }
 
     // ── QUESTION SHUFFLE ──
-    // Shuffles the order of questions AND the order of each question's options.
-    // Recalculates correctAnswer index after options are shuffled so scoring still works.
     const shuffleArray = (arr) => [...arr].sort(() => Math.random() - 0.5)
-
     const shuffledQuestions = shuffleArray(quiz.questions).map(q => {
-      const correctAnswerText = q.options[q.correctAnswer]   // remember the correct answer text
-      const shuffledOptions = shuffleArray(q.options)         // shuffle the options array
-      const newCorrectIndex = shuffledOptions.indexOf(correctAnswerText) // find new index
+      const correctAnswerText = q.options[q.correctAnswer]
+      const shuffledOptions = shuffleArray(q.options)
+      const newCorrectIndex = shuffledOptions.indexOf(correctAnswerText)
       return { ...q, options: shuffledOptions, correctAnswer: newCorrectIndex }
     })
-
     quiz = { ...quiz, questions: shuffledQuestions }
     // ── END QUESTION SHUFFLE ──
 
-    // reset tab switch count each time a new quiz starts
     setTabSwitchCount(0)
     setShowTabWarning(false)
+    setExplanations([])  // clear old explanations on new quiz start
 
     setSelectedQuiz(quiz); setCurrentQuestionIndex(0); setAnswers({})
     setShowResults(false); setScore(0); setCorrectAnswersCount(0)
@@ -127,7 +123,56 @@ export default function Student() {
     await saveResult(result, false)
     setScore(result.finalScore); setCorrectAnswersCount(result.correctAnswers)
     setShowResults(true); setIsSubmitting(false)
+
+    // ── FETCH AI EXPLANATIONS after submit ──
+    // Find all questions the student got wrong and send them to Gemini
+    fetchExplanations(result.processedAnswers)
+    // ── END FETCH AI EXPLANATIONS ──
   }
+
+  // ── FETCH AI EXPLANATIONS FUNCTION ──
+  // Collects wrong questions, calls /api/explain-answers, stores results in state
+  const fetchExplanations = async (processedAnswers) => {
+    if (!selectedQuiz?.questions) return
+
+    // Build list of wrong questions with full details
+    const wrongQuestions = processedAnswers
+      .filter(a => !a.isCorrect && a.selectedOption !== -1)  // wrong and actually answered
+      .map(a => {
+        const question = selectedQuiz.questions.find(
+          q => (q._id || q.id) === a.questionId ||
+               selectedQuiz.questions.indexOf(q).toString() === a.questionId
+        )
+        if (!question) return null
+        return {
+          questionId: a.questionId,
+          question: question.question,
+          options: question.options,
+          correctAnswer: question.correctAnswer,
+          studentAnswer: a.selectedOption
+        }
+      })
+      .filter(Boolean)  // remove nulls
+
+    if (wrongQuestions.length === 0) return  // all correct, nothing to explain
+
+    setIsFetchingExplanations(true)
+    try {
+      const res = await fetch('/api/explain-answers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wrongQuestions })
+      })
+      const data = await res.json()
+      if (res.ok && data.explanations) {
+        setExplanations(data.explanations)
+      }
+    } catch (e) {
+      console.error('Failed to fetch explanations:', e)
+    }
+    setIsFetchingExplanations(false)
+  }
+  // ── END FETCH AI EXPLANATIONS FUNCTION ──
 
   const calculateScore = () => {
     if (!selectedQuiz?.questions) return { correctAnswers: 0, finalScore: 0, processedAnswers: [] }
@@ -171,8 +216,8 @@ export default function Student() {
     setSelectedQuiz(null); setShowResults(false); setStartTime(null)
     setTimeLeft(null); setTimeExpired(false); setIsSubmitting(false)
     setAnswers({}); setCurrentQuestionIndex(0)
-    // reset anti-cheat state on exit
     setTabSwitchCount(0); setShowTabWarning(false)
+    setExplanations([])  // clear explanations when going back
   }
 
   const getScoreEmoji = (s) => s >= 80 ? '🏆' : s >= 60 ? '⭐' : s >= 40 ? '👍' : '📚'
@@ -227,10 +272,23 @@ export default function Student() {
         {!timeExpired && (
           <>
             <div className={styles.reviewTitle}>Review Answers</div>
+
+            {/* ── AI EXPLANATIONS LOADING STATE ── */}
+            {isFetchingExplanations && (
+              <div className={styles.alertWarning} style={{ textAlign: 'center', marginBottom: 16 }}>
+                ✨ AI is generating explanations for your wrong answers...
+              </div>
+            )}
+            {/* ── END AI EXPLANATIONS LOADING STATE ── */}
+
             {selectedQuiz.questions.map((q, i) => {
               const qid = q._id || q.id || i.toString()
               const userAnswer = answers[qid]
               const isCorrect = userAnswer !== undefined && userAnswer === q.correctAnswer
+
+              // ── find explanation for this question if it exists ──
+              const explanationObj = explanations.find(e => e.questionId === qid)
+
               return (
                 <div key={qid} className={styles.reviewCard}>
                   <div className={styles.reviewQuestion}>Q{i+1}: {q.question}</div>
@@ -245,6 +303,21 @@ export default function Student() {
                     </div>
                   ))}
                   {userAnswer === undefined && <div className={styles.reviewUnanswered}>⚠️ Not answered</div>}
+
+                  {/* ── AI EXPLANATION BOX — only shows on wrong answers ── */}
+                  {!isCorrect && userAnswer !== undefined && (
+                    <div className={styles.aiExplanation}>
+                      <span className={styles.aiExplanationLabel}>✨ AI Explanation</span>
+                      {explanationObj
+                        ? <p className={styles.aiExplanationText}>{explanationObj.explanation}</p>
+                        : isFetchingExplanations
+                          ? <p className={styles.aiExplanationText} style={{ opacity: 0.5 }}>Loading...</p>
+                          : null
+                      }
+                    </div>
+                  )}
+                  {/* ── END AI EXPLANATION BOX ── */}
+
                 </div>
               )
             })}
@@ -269,10 +342,6 @@ export default function Student() {
     const answeredCount = Object.keys(answers).length
 
     return (
-      // ── NO COPY-PASTE ──
-      // onCopy / onPaste: blocks Ctrl+C and Ctrl+V on text inside the quiz
-      // onContextMenu: disables right-click so students can't use "Search Google for..."
-      // onKeyDown: blocks Ctrl+C, Ctrl+V, Ctrl+U (view source), Ctrl+S, F12 (devtools)
       <div
         className={styles.container}
         onCopy={(e) => e.preventDefault()}
@@ -283,8 +352,6 @@ export default function Student() {
           if (e.key === 'F12') e.preventDefault()
         }}
       >
-      {/* ── END NO COPY-PASTE ── */}
-
         <div className={styles.nav}>
           <h1 className={styles.navTitle}>{selectedQuiz.title}</h1>
           <div className={styles.navRight}>
@@ -304,27 +371,19 @@ export default function Student() {
           <div className={styles.alertExpired}>⏰ Time expired! Submitting your quiz...</div>
         )}
 
-        {/* ── TAB SWITCH WARNING BANNER ── */}
-        {/* Shows after first tab switch. Disappears on dismiss. Second switch = auto submit. */}
         {showTabWarning && tabSwitchCount < 2 && (
           <div className={styles.alertWarning}>
             ⚠️ Warning ({tabSwitchCount}/2) — You switched tabs! Do it again and your quiz will be auto-submitted.
-            <button
-              onClick={() => setShowTabWarning(false)}
-              style={{ marginLeft: 12, cursor: 'pointer', fontWeight: 600 }}
-            >
+            <button onClick={() => setShowTabWarning(false)} style={{ marginLeft: 12, cursor: 'pointer', fontWeight: 600 }}>
               Dismiss
             </button>
           </div>
         )}
-        {/* ── END TAB SWITCH WARNING BANNER ── */}
 
-        {/* Progress bar */}
         <div className={styles.progressBar}>
           <div className={styles.progressFill} style={{ width: `${progress}%` }} />
         </div>
 
-        {/* Question dots */}
         <div className={styles.dotsNav}>
           {selectedQuiz.questions.map((_, i) => {
             const qid = selectedQuiz.questions[i]._id || selectedQuiz.questions[i].id || i.toString()
@@ -338,7 +397,6 @@ export default function Student() {
           })}
         </div>
 
-        {/* Question card */}
         <div className={styles.questionCard}>
           <div className={styles.questionMeta}>
             <span className={styles.questionNum}>Question {currentQuestionIndex + 1} of {selectedQuiz.questions.length}</span>
@@ -358,7 +416,6 @@ export default function Student() {
                   className={`${styles.optionItem} ${isSelected ? styles.optionSelected : ''} ${isSubmitting || timeExpired ? styles.optionDisabled : ''}`}
                   onClick={() => handleAnswer(questionId, i)}>
                   <div className={`${styles.optionRadio} ${isSelected ? styles.optionRadioSelected : ''}`} />
-                    
                   <span className={`${styles.optionText} ${isSelected ? styles.optionTextSelected : ''}`}>{option}</span>
                 </div>
               )
@@ -366,7 +423,6 @@ export default function Student() {
           </div>
         </div>
 
-        {/* Nav buttons */}
         <div className={styles.quizNav}>
           <button className={styles.btnNav} onClick={() => setCurrentQuestionIndex(p => p-1)}
             disabled={currentQuestionIndex === 0 || isSubmitting || timeExpired}>
