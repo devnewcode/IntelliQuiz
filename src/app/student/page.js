@@ -276,7 +276,7 @@ export default function Student() {
             {/* ── AI EXPLANATIONS LOADING STATE ── */}
             {isFetchingExplanations && (
               <div className={styles.alertWarning} style={{ textAlign: 'center', marginBottom: 16 }}>
-                ✨ AI is generating explanations for your wrong answers...
+                ✨ Please wait we are generating explanations for your wrong answers...
               </div>
             )}
             {/* ── END AI EXPLANATIONS LOADING STATE ── */}
@@ -307,7 +307,7 @@ export default function Student() {
                   {/* ── AI EXPLANATION BOX — only shows on wrong answers ── */}
                   {!isCorrect && userAnswer !== undefined && (
                     <div className={styles.aiExplanation}>
-                      <span className={styles.aiExplanationLabel}>✨ AI Explanation</span>
+                      <span className={styles.aiExplanationLabel}>✨ Explanation</span>
                       {explanationObj
                         ? <p className={styles.aiExplanationText}>{explanationObj.explanation}</p>
                         : isFetchingExplanations

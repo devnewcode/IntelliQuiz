@@ -28,7 +28,7 @@ Rules:
 - Each question must have exactly 4 options
 - Questions should be clear and educational
 - Difficulty: ${difficulty || 'medium'}
-- Number of questions: ${count || 5}`
+- Number of questions: ${count || 20}`
 
     // const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' })
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })

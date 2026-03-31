@@ -281,7 +281,7 @@ export default function Admin() {
             <label className={styles.label}>Custom Prompt</label>
             <textarea className={styles.textarea} value={aiPrompt}
               onChange={e => setAiPrompt(e.target.value)}
-              placeholder="e.g., Generate 5 hard questions about the French Revolution focusing on key dates and figures"
+              placeholder="e.g., Generate questions(20 questions will be generated) about the French Revolution focusing on key dates and figures"
               disabled={isGenerating} rows="4" />
             <span className={styles.inputHint}>Be specific — mention topic, difficulty, number of questions, and any focus areas.</span>
           </div>
