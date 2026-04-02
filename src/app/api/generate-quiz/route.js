@@ -9,9 +9,11 @@ export async function POST(request) {
 
     // Build the prompt — supports both modes (topic fields OR free text)
     const finalPrompt = prompt ||
-      `Generate ${count} multiple choice quiz questions about "${topic}" with ${difficulty} difficulty.`
+      `Generate exactly ${count} multiple choice quiz questions about "${topic}" with ${difficulty} difficulty.`
 
     const fullPrompt = `${finalPrompt}
+
+IMPORTANT: You MUST generate EXACTLY ${exactCount} questions — no more, no less.
 
 Return ONLY a valid JSON array, no extra text, no markdown, no explanation.
 Format:
