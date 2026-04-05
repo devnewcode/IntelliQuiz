@@ -10,7 +10,6 @@ export default function Home() {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' })
   const [registerForm, setRegisterForm] = useState({
     username: '', password: '', name: '', email: ''
-    // ← role removed — students only on main page
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -28,17 +27,20 @@ export default function Home() {
 
   const handleRegister = async (e) => {
     e.preventDefault(); setError(''); setSuccess(''); setIsSubmitting(true)
-    // Always register as student from main page
     const result = await register({ ...registerForm, role: 'student' })
     if (result.success) { setSuccess('Account created successfully!'); setShowWelcome(true) }
     else setError(result.error)
     setIsSubmitting(false)
   }
 
+  // ── SUPERADMIN: admin and superadmin both go to /admin ──
+  const isAdminRole = (role) => role === 'admin' || role === 'superadmin'
+
   const navigateToRole = () => {
     setShowWelcome(false)
-    router.push(user.role === 'admin' ? '/admin' : '/student')
+    router.push(isAdminRole(user.role) ? '/admin' : '/student')
   }
+  // ── END SUPERADMIN ──
 
   const Navbar = () => (
     <nav className={styles.navbar}>
@@ -52,6 +54,29 @@ export default function Home() {
       </div>
     </nav>
   )
+
+  // ── SHARED BUTTONS — reused in both welcome and dashboard views ──
+  const RoleButtons = () => isAdminRole(user.role) ? (
+    <>
+      <button onClick={() => router.push('/admin')} className={styles.primaryBtn}>
+        <span className={styles.btnIcon}>⚙️</span>
+        {user.role === 'superadmin' ? 'Super Admin Panel' : 'Admin Panel'}
+      </button>
+      <button onClick={() => router.push('/results')} className={styles.secondaryBtn}>
+        <span className={styles.btnIcon}>📊</span> View All Results
+      </button>
+    </>
+  ) : (
+    <>
+      <button onClick={() => router.push('/student')} className={styles.primaryBtn}>
+        <span className={styles.btnIcon}>📝</span> Take Quiz
+      </button>
+      <button onClick={() => router.push('/results')} className={styles.secondaryBtn}>
+        <span className={styles.btnIcon}>📈</span> View My Results
+      </button>
+    </>
+  )
+  // ── END SHARED BUTTONS ──
 
   if (loading) {
     return (
@@ -72,25 +97,7 @@ export default function Home() {
             <h2 className={styles.welcomeTitle}>Welcome to IntelliQuiz, {user.name}!</h2>
             <p className={styles.welcomeSubtitle}>You are logged in as <strong>{user.role}</strong></p>
             <div className={styles.actionButtons}>
-              {user.role === 'admin' ? (
-                <>
-                  <button onClick={() => router.push('/admin')} className={styles.primaryBtn}>
-                    <span className={styles.btnIcon}>⚙️</span> Admin Panel
-                  </button>
-                  <button onClick={() => router.push('/results')} className={styles.secondaryBtn}>
-                    <span className={styles.btnIcon}>📊</span> View All Results
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button onClick={() => router.push('/student')} className={styles.primaryBtn}>
-                    <span className={styles.btnIcon}>📝</span> Take Quiz
-                  </button>
-                  <button onClick={() => router.push('/results')} className={styles.secondaryBtn}>
-                    <span className={styles.btnIcon}>📈</span> View My Results
-                  </button>
-                </>
-              )}
+              <RoleButtons />
             </div>
             <button onClick={navigateToRole} className={styles.continueBtn}>Continue →</button>
           </div>
@@ -107,25 +114,7 @@ export default function Home() {
           <h2>Welcome back, {user.name}!</h2>
           <p className={styles.roleText}>You are logged in as <strong>{user.role}</strong></p>
           <div className={styles.actionButtons}>
-            {user.role === 'admin' ? (
-              <>
-                <button onClick={() => router.push('/admin')} className={styles.primaryBtn}>
-                  <span className={styles.btnIcon}>⚙️</span> Admin Panel
-                </button>
-                <button onClick={() => router.push('/results')} className={styles.secondaryBtn}>
-                  <span className={styles.btnIcon}>📊</span> View All Results
-                </button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => router.push('/student')} className={styles.primaryBtn}>
-                  <span className={styles.btnIcon}>📝</span> Take Quiz
-                </button>
-                <button onClick={() => router.push('/results')} className={styles.secondaryBtn}>
-                  <span className={styles.btnIcon}>📈</span> View My Results
-                </button>
-              </>
-            )}
+            <RoleButtons />
           </div>
         </div>
       </div>
@@ -201,7 +190,6 @@ export default function Home() {
                 onChange={e => setRegisterForm({...registerForm, password: e.target.value})}
                 required disabled={isSubmitting} placeholder="Create a password (min 6 characters)" minLength={6} />
             </div>
-            {/* ← Role dropdown REMOVED — students only */}
             <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
               {isSubmitting ? 'Creating Account...' : 'Create Account'}
             </button>

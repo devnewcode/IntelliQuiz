@@ -28,9 +28,9 @@ export async function DELETE(request, { params }) {
     const quizId = params.id
     
     // Find and delete the quiz
-    const deletedQuiz = await Quiz.findOneAndDelete({ 
-      _id: quizId,
-    })
+    const deletedQuiz = decoded.role === 'superadmin'
+  ? await Quiz.findOneAndDelete({ _id: quizId })
+  : await Quiz.findOneAndDelete({ _id: quizId, createdBy: decoded.id })
 
     if (!deletedQuiz) {
       return NextResponse.json(

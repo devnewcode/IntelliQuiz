@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import dbConnect from '../../../lib/mongodb'
 import Result from '../../../lib/models/Result'
 import { verifyToken } from '../../../lib/auth'
-
+import Quiz from '@/lib/models/Quiz'
 export async function GET(request) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -26,16 +26,27 @@ export async function GET(request) {
     await dbConnect()
 
     let results
-    if (decoded.role === 'admin') {
-      results = await Result.find({})
-        .populate('quiz', 'title')
-        .populate('user', 'name username email')
-        .sort({ completedAt: -1 })
-    } else {
-      results = await Result.find({ user: decoded.id })
-        .populate('quiz', 'title')
-        .sort({ completedAt: -1 })
-    }
+    if (decoded.role === 'superadmin') {
+  // superadmin sees all results
+  results = await Result.find({})
+    .populate('quiz', 'title')
+    .populate('user', 'name username email')
+    .sort({ completedAt: -1 })
+} else if (decoded.role === 'admin') {
+
+  // admin sees only results from their own quizzes
+  const adminQuizIds = await Quiz.find({ createdBy: decoded.id }).distinct('_id')
+  results = await Result.find({ quiz: { $in: adminQuizIds } })
+    .populate('quiz', 'title')
+    .populate('user', 'name username email')
+    .sort({ completedAt: -1 })
+}
+else {
+  // here the student will see only their own results ──
+  results = await Result.find({ user: decoded.id })
+    .populate('quiz', 'title')
+    .sort({ completedAt: -1 })
+}
 
     return NextResponse.json({ results })
   } catch (error) {

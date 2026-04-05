@@ -31,18 +31,23 @@ export default function Admin() {
   useEffect(() => {
     if (!loading) {
       if (!user) { router.push('/'); return }
-      if (user.role !== 'admin') { router.push('/'); return }
+      if (user.role !== 'admin' && user.role !== 'superadmin') { 
+  router.push('/'); return 
+}
     }
     fetchQuizzes()
   }, [user, loading, router])
 
   const fetchQuizzes = async () => {
-    try {
-      const res = await fetch('/api/quizzes')
-      const data = await res.json()
-      if (res.ok) setQuizzes(data.quizzes)
-    } catch (e) { console.error(e) }
-  }
+  try {
+    const token = localStorage.getItem('token')
+    const res = await fetch('/api/quizzes', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const data = await res.json()
+    if (res.ok) setQuizzes(data.quizzes)
+  } catch (e) { console.error(e) }
+}
 
   const addQuestion = () => {
     if (!currentQuestion.question.trim() || currentQuestion.options.some(o => !o.trim())) {
@@ -136,7 +141,7 @@ export default function Admin() {
   }
 
   if (loading) return <div className={styles.container}><div className={styles.loading}>Loading...</div></div>
-  if (!user || user.role !== 'admin') return (
+  if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) return (
     <div className={styles.container}>
       <div className={`${styles.alert} ${styles.alertError}`}>Access denied. Admin privileges required.</div>
     </div>
@@ -282,7 +287,7 @@ export default function Admin() {
             <label className={styles.label}>Custom Prompt</label>
             <textarea className={styles.textarea} value={aiPrompt}
               onChange={e => setAiPrompt(e.target.value)}
-              placeholder="e.g., Generate questions(20 questions will be generated) about the French Revolution focusing on key dates and figures"
+              placeholder="e.g., Generate 10 hard questions about React hooks, useState and useEffect with real-world examples"
               disabled={isGenerating} rows="4" />
             <span className={styles.inputHint}>Be specific — mention topic, difficulty, number of questions, and any focus areas.</span>
           </div>

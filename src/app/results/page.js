@@ -26,7 +26,7 @@ export default function Results() {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await response.json()
-      if (response.ok) setResults(data.results)
+      if (response.ok) setResults(data.results || [])
     } catch (error) {
       console.error('Failed to fetch results:', error)
     } finally {
@@ -93,7 +93,7 @@ export default function Results() {
   // ── END CSV EXPORT ──
 
   // ── Group results by student (admin only) ──────────
-  const groupedByStudent = results.reduce((acc, result) => {
+  const groupedByStudent = (results || []).reduce((acc, result) => {
     if (!result.user) return acc
     const uid = result.user._id || result.user.email
     if (!acc[uid]) {
@@ -173,7 +173,7 @@ export default function Results() {
       <div className={styles.nav}>
         <h1>
           <span className={styles.pageIcon}>📊</span>
-          {user.role === 'admin' ? 'All Quiz Results' : 'My Quiz Results'}
+          {(user.role === 'admin' || user.role === 'superadmin') ? 'All Quiz Results' : 'My Quiz Results'}
         </h1>
         <div className={styles.userInfo}>
           <span className={styles.userName}>{user.name}</span>
@@ -181,11 +181,11 @@ export default function Results() {
           {user.role === 'student' && (
             <button onClick={() => router.push('/student')} className={styles.navBtnPrimary}>Take Quiz</button>
           )}
-          {user.role === 'admin' && (
+          {(user.role === 'admin' || user.role === 'superadmin') && (
             <button onClick={() => router.push('/admin')} className={styles.navBtnPrimary}>Admin Panel</button>
           )}
           {/* ── CSV EXPORT BUTTON — admin only, hidden when no results ── */}
-          {user.role === 'admin' && results.length > 0 && (
+          {(user.role === 'admin' || user.role === 'superadmin') && results.length > 0 && (
             <button onClick={exportToCSV} className={styles.navBtn}>
               ⬇ Export CSV
             </button>
@@ -199,7 +199,7 @@ export default function Results() {
         {/* ════════════════════════════════════════════
             ADMIN VIEW — grouped by student
         ════════════════════════════════════════════ */}
-        {user.role === 'admin' && (
+        {(user.role === 'admin' || user.role === 'superadmin') && (
           <>
             {/* Admin stats */}
             {studentList.length > 0 && (

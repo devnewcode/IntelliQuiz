@@ -3,11 +3,22 @@ import dbConnect from '../../../lib/mongodb'
 import Quiz from '../../../lib/models/Quiz'
 import { verifyToken } from '../../../lib/auth'
 
-export async function GET() {
+export async function GET(request) {
   try {
     await dbConnect()
+
+    const authHeader = request.headers.get('authorization')
+    const token = authHeader?.split(' ')[1]
+    const decoded = token ? verifyToken(token) : null
+    // superadmin sees all, admin sees only their own, student/no auth sees all active
+    const filter = decoded?.role === 'superadmin'
+    ? { isActive: true }
+    : decoded?.role === 'admin'
+    ? { isActive: true, createdBy: decoded.id }
+    : { isActive: true }
     
-    const quizzes = await Quiz.find({ isActive: true })
+    
+    const quizzes = await Quiz.find(filter)
       .populate('createdBy', 'name username')
       .sort({ createdAt: -1 })
 
