@@ -29,7 +29,7 @@
   background: linear-gradient(135deg,#a78bfa,#7c3aed);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-.navRight { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.navRight { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
 .navName  { font-weight: 600; color: #e2e8f0; font-size: 14px; }
 .navRole  {
   background: linear-gradient(135deg,#6d28d9,#7c3aed);
