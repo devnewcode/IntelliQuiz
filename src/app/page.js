@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../lib/authContext'
+import StudentDashboard from './components/StudentDashboard'
 import styles from './page.module.css'
 
 export default function Home() {
@@ -33,14 +34,7 @@ export default function Home() {
     setIsSubmitting(false)
   }
 
-  // ── SUPERADMIN: admin and superadmin both go to /admin ──
   const isAdminRole = (role) => role === 'admin' || role === 'superadmin'
-
-  const navigateToRole = () => {
-    setShowWelcome(false)
-    router.push(isAdminRole(user.role) ? '/admin' : '/student')
-  }
-  // ── END SUPERADMIN ──
 
   const Navbar = () => (
     <nav className={styles.navbar}>
@@ -55,29 +49,6 @@ export default function Home() {
     </nav>
   )
 
-  // ── SHARED BUTTONS — reused in both welcome and dashboard views ──
-  const RoleButtons = () => isAdminRole(user.role) ? (
-    <>
-      <button onClick={() => router.push('/admin')} className={styles.primaryBtn}>
-        <span className={styles.btnIcon}>⚙️</span>
-        {user.role === 'superadmin' ? 'Super Admin Panel' : 'Admin Panel'}
-      </button>
-      <button onClick={() => router.push('/results')} className={styles.secondaryBtn}>
-        <span className={styles.btnIcon}>📊</span> View All Results
-      </button>
-    </>
-  ) : (
-    <>
-      <button onClick={() => router.push('/student')} className={styles.primaryBtn}>
-        <span className={styles.btnIcon}>📝</span> Take Quiz
-      </button>
-      <button onClick={() => router.push('/results')} className={styles.secondaryBtn}>
-        <span className={styles.btnIcon}>📈</span> View My Results
-      </button>
-    </>
-  )
-  // ── END SHARED BUTTONS ──
-
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
@@ -87,6 +58,12 @@ export default function Home() {
     )
   }
 
+  // ── STUDENT DASHBOARD — returning student skips welcome, goes straight here ──
+  if (user && !isAdminRole(user.role) && !showWelcome) {
+    return <StudentDashboard user={user} logout={logout} />
+  }
+
+  // ── WELCOME SCREEN — shown once after login for all roles ──
   if (user && showWelcome) {
     return (
       <div className={styles.container}>
@@ -97,30 +74,62 @@ export default function Home() {
             <h2 className={styles.welcomeTitle}>Welcome to IntelliQuiz, {user.name}!</h2>
             <p className={styles.welcomeSubtitle}>You are logged in as <strong>{user.role}</strong></p>
             <div className={styles.actionButtons}>
-              <RoleButtons />
+              {isAdminRole(user.role) ? (
+                <>
+                  <button onClick={() => router.push('/admin')} className={styles.primaryBtn}>
+                    <span className={styles.btnIcon}>⚙️</span>
+                    {user.role === 'superadmin' ? 'Super Admin Panel' : 'Admin Panel'}
+                  </button>
+                  <button onClick={() => router.push('/results')} className={styles.secondaryBtn}>
+                    <span className={styles.btnIcon}>📊</span> View All Results
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => router.push('/student')} className={styles.primaryBtn}>
+                    <span className={styles.btnIcon}>📝</span> Take Quiz
+                  </button>
+                  <button onClick={() => setShowWelcome(false)} className={styles.secondaryBtn}>
+                    <span className={styles.btnIcon}>📊</span> View Dashboard
+                  </button>
+                </>
+              )}
             </div>
-            <button onClick={navigateToRole} className={styles.continueBtn}>Continue →</button>
+            {/* Continue button only for admin — students have dashboard button above */}
+            {isAdminRole(user.role) && (
+              <button onClick={() => router.push('/admin')} className={styles.continueBtn}>
+                Continue →
+              </button>
+            )}
           </div>
         </div>
       </div>
     )
   }
 
-  if (user && !showWelcome) {
+  // ── ADMIN DASHBOARD — returning admin sees simple button panel ──
+  if (user && isAdminRole(user.role) && !showWelcome) {
     return (
       <div className={styles.container}>
         <Navbar />
         <div className={styles.dashboardSection}>
           <h2>Welcome back, {user.name}!</h2>
-          <p className={styles.roleText}>You are logged in as <strong>{user.role}</strong></p>
+          <p className={styles.roleText}>Logged in as <strong>{user.role}</strong></p>
           <div className={styles.actionButtons}>
-            <RoleButtons />
+            <button onClick={() => router.push('/admin')} className={styles.primaryBtn}>
+              <span className={styles.btnIcon}>⚙️</span>
+              {user.role === 'superadmin' ? 'Super Admin Panel' : 'Admin Panel'}
+            </button>
+            <button onClick={() => router.push('/results')} className={styles.secondaryBtn}>
+              <span className={styles.btnIcon}>📊</span> View All Results
+            </button>
           </div>
         </div>
       </div>
     )
   }
 
+  // ── AUTH PAGE — not logged in ──
   return (
     <div className={styles.authContainer}>
       <div className={styles.authCard}>
