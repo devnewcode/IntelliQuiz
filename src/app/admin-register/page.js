@@ -17,6 +17,9 @@ export default function AdminRegister() {
     e.preventDefault()
     setError(''); setIsSubmitting(true)
 
+    // Clear any existing token to prevent confusion
+    localStorage.removeItem('token')
+
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
@@ -34,10 +37,9 @@ export default function AdminRegister() {
       const data = await res.json()
 
       if (res.ok) {
-        // Save token and redirect to admin panel
-        localStorage.setItem('token', data.token)
-        setSuccess('Admin account created! Redirecting...')
-        setTimeout(() => router.push('/admin'), 1500)
+        // Do not save token or redirect - registration should not log in
+        setSuccess('Admin account created successfully! Please log in to access the admin panel.')
+        setTimeout(() => router.push('/'), 2000)
       } else {
         setError(data.message || 'Registration failed')
       }
