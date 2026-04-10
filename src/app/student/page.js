@@ -4,37 +4,47 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '../../lib/authContext'
 import styles from './page.module.css'
 
+// ── Components ──
+import QuizList    from '../components/quiz/QuizList'
+import QuizTaking  from '../components/quiz/QuizTaking'
+import QuizResults from '../components/quiz/QuizResults'
+
 export default function Student() {
   const { user, loading } = useAuth()
+  const router = useRouter()
+
+  // ── Quiz state ──
   const [quizzes, setQuizzes] = useState([])
   const [selectedQuiz, setSelectedQuiz] = useState(null)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState({})
   const [showResults, setShowResults] = useState(false)
   const [score, setScore] = useState(0)
+  const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
   const [startTime, setStartTime] = useState(null)
+
+  // ── Timer state ──
   const [timeLeft, setTimeLeft] = useState(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [timerInterval, setTimerInterval] = useState(null)
   const [timeExpired, setTimeExpired] = useState(false)
-  const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
 
-  // ── ANTI-CHEAT STATE ──
+  // ── UI state ──
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // ── Anti-cheat state ──
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
   const [showTabWarning, setShowTabWarning] = useState(false)
-  // ── END ANTI-CHEAT STATE ──
 
-  // ── AI EXPLANATION STATE ──
-  // explanations: [{ questionId, explanation }]
-  // isFetchingExplanations: shows a loading state in the review section
+  // ── AI explanation state ──
   const [explanations, setExplanations] = useState([])
   const [isFetchingExplanations, setIsFetchingExplanations] = useState(false)
-  // ── END AI EXPLANATION STATE ──
 
-  const router = useRouter()
+  // ── Cleanup timer on unmount ──
+  useEffect(() => {
+    return () => { if (timerInterval) clearInterval(timerInterval) }
+  }, [timerInterval])
 
-  useEffect(() => { return () => { if (timerInterval) clearInterval(timerInterval) } }, [timerInterval])
-
+  // ── Auth guard + fetch quizzes ──
   useEffect(() => {
     if (!loading) {
       if (!user) { router.push('/'); return }
@@ -43,7 +53,7 @@ export default function Student() {
     fetchQuizzes()
   }, [user, loading, router])
 
-  // ── TAB SWITCH DETECTION ──
+  // ── Tab switch detection (anti-cheat) ──
   useEffect(() => {
     if (!selectedQuiz || showResults) return
     const handleVisibility = () => {
@@ -59,7 +69,10 @@ export default function Student() {
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [selectedQuiz, showResults])
-  // ── END TAB SWITCH DETECTION ──
+
+  // ─────────────────────────────────────────
+  // API calls
+  // ─────────────────────────────────────────
 
   const fetchQuizzes = async () => {
     try {
@@ -69,75 +82,31 @@ export default function Student() {
     } catch (e) { console.error(e); setQuizzes([]) }
   }
 
-  const startQuiz = (quiz) => {
-    if (!quiz?.questions?.length) { alert('This quiz has no questions.'); return }
-
-    // ── QUESTION SHUFFLE ──
-    const shuffleArray = (arr) => [...arr].sort(() => Math.random() - 0.5)
-    const shuffledQuestions = shuffleArray(quiz.questions).map(q => {
-      const correctAnswerText = q.options[q.correctAnswer]
-      const shuffledOptions = shuffleArray(q.options)
-      const newCorrectIndex = shuffledOptions.indexOf(correctAnswerText)
-      return { ...q, options: shuffledOptions, correctAnswer: newCorrectIndex }
-    })
-    quiz = { ...quiz, questions: shuffledQuestions }
-    // ── END QUESTION SHUFFLE ──
-
-    setTabSwitchCount(0)
-    setShowTabWarning(false)
-    setExplanations([])  // clear old explanations on new quiz start
-
-    setSelectedQuiz(quiz); setCurrentQuestionIndex(0); setAnswers({})
-    setShowResults(false); setScore(0); setCorrectAnswersCount(0)
-    setStartTime(new Date()); setTimeExpired(false); setIsSubmitting(false)
-
-    if (quiz.timerEnabled && quiz.timeLimit > 0) {
-      const totalSeconds = quiz.timeLimit * 60
-      setTimeLeft(totalSeconds)
-      const interval = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) { clearInterval(interval); setTimeExpired(true); submitQuizAutomatically(); return 0 }
-          return prev - 1
+  const saveResult = async (result, expired) => {
+    try {
+      const token = localStorage.getItem('token')
+      const timeTaken = startTime ? Math.floor((new Date() - startTime) / 1000) : 0
+      await fetch('/api/results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          quizId: selectedQuiz._id,
+          answers: result.processedAnswers,
+          score: result.finalScore,
+          totalQuestions: selectedQuiz.questions.length,
+          correctAnswers: result.correctAnswers,
+          timeTaken,
+          timeExpired: expired
         })
-      }, 1000)
-      setTimerInterval(interval)
-    } else { setTimeLeft(null) }
+      })
+    } catch (e) { console.error(e) }
   }
 
-  const submitQuizAutomatically = async () => {
-    if (isSubmitting) return
-    setIsSubmitting(true)
-    if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
-    const processedAnswers = selectedQuiz?.questions?.map((q, i) => ({
-      questionId: q._id || q.id || i.toString(), selectedOption: -1, isCorrect: false
-    })) || []
-    await saveResult({ correctAnswers: 0, finalScore: 0, processedAnswers }, true)
-    setScore(0); setCorrectAnswersCount(0); setShowResults(true); setIsSubmitting(false)
-  }
-
-  const submitQuizManually = async () => {
-    if (isSubmitting) return
-    setIsSubmitting(true)
-    if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
-    const result = calculateScore()
-    await saveResult(result, false)
-    setScore(result.finalScore); setCorrectAnswersCount(result.correctAnswers)
-    setShowResults(true); setIsSubmitting(false)
-
-    // ── FETCH AI EXPLANATIONS after submit ──
-    // Find all questions the student got wrong and send them to Gemini
-    fetchExplanations(result.processedAnswers)
-    // ── END FETCH AI EXPLANATIONS ──
-  }
-
-  // ── FETCH AI EXPLANATIONS FUNCTION ──
-  // Collects wrong questions, calls /api/explain-answers, stores results in state
   const fetchExplanations = async (processedAnswers) => {
     if (!selectedQuiz?.questions) return
 
-    // Build list of wrong questions with full details
     const wrongQuestions = processedAnswers
-      .filter(a => !a.isCorrect && a.selectedOption !== -1)  // wrong and actually answered
+      .filter(a => !a.isCorrect && a.selectedOption !== -1)
       .map(a => {
         const question = selectedQuiz.questions.find(
           q => (q._id || q.id) === a.questionId ||
@@ -152,9 +121,9 @@ export default function Student() {
           studentAnswer: a.selectedOption
         }
       })
-      .filter(Boolean)  // remove nulls
+      .filter(Boolean)
 
-    if (wrongQuestions.length === 0) return  // all correct, nothing to explain
+    if (wrongQuestions.length === 0) return
 
     setIsFetchingExplanations(true)
     try {
@@ -164,15 +133,63 @@ export default function Student() {
         body: JSON.stringify({ wrongQuestions })
       })
       const data = await res.json()
-      if (res.ok && data.explanations) {
-        setExplanations(data.explanations)
-      }
-    } catch (e) {
-      console.error('Failed to fetch explanations:', e)
-    }
+      if (res.ok && data.explanations) setExplanations(data.explanations)
+    } catch (e) { console.error('Failed to fetch explanations:', e) }
     setIsFetchingExplanations(false)
   }
-  // ── END FETCH AI EXPLANATIONS FUNCTION ──
+
+  // ─────────────────────────────────────────
+  // Quiz logic
+  // ─────────────────────────────────────────
+
+  const shuffleArray = (arr) => [...arr].sort(() => Math.random() - 0.5)
+
+  const startQuiz = (quiz) => {
+    if (!quiz?.questions?.length) { alert('This quiz has no questions.'); return }
+
+    // Shuffle questions and options
+    const shuffledQuestions = shuffleArray(quiz.questions).map(q => {
+      const correctAnswerText = q.options[q.correctAnswer]
+      const shuffledOptions = shuffleArray(q.options)
+      const newCorrectIndex = shuffledOptions.indexOf(correctAnswerText)
+      return { ...q, options: shuffledOptions, correctAnswer: newCorrectIndex }
+    })
+    quiz = { ...quiz, questions: shuffledQuestions }
+
+    // Reset all state
+    setSelectedQuiz(quiz)
+    setCurrentQuestionIndex(0)
+    setAnswers({})
+    setShowResults(false)
+    setScore(0)
+    setCorrectAnswersCount(0)
+    setStartTime(new Date())
+    setTimeExpired(false)
+    setIsSubmitting(false)
+    setTabSwitchCount(0)
+    setShowTabWarning(false)
+    setExplanations([])
+
+    // Start timer if enabled
+    if (quiz.timerEnabled && quiz.timeLimit > 0) {
+      const totalSeconds = quiz.timeLimit * 60
+      setTimeLeft(totalSeconds)
+      const interval = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(interval)
+            setTimeExpired(true)
+            submitQuizAutomatically()
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      setTimerInterval(interval)
+    } else {
+      setTimeLeft(null)
+    }
+  }
 
   const calculateScore = () => {
     if (!selectedQuiz?.questions) return { correctAnswers: 0, finalScore: 0, processedAnswers: [] }
@@ -188,23 +205,34 @@ export default function Student() {
     return { correctAnswers, finalScore, processedAnswers }
   }
 
-  const saveResult = async (result, expired) => {
-    try {
-      const token = localStorage.getItem('token')
-      const timeTaken = startTime ? Math.floor((new Date() - startTime) / 1000) : 0
-      await fetch('/api/results', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          quizId: selectedQuiz._id, answers: result.processedAnswers,
-          score: result.finalScore, totalQuestions: selectedQuiz.questions.length,
-          correctAnswers: result.correctAnswers, timeTaken, timeExpired: expired
-        })
-      })
-    } catch (e) { console.error(e) }
+  const submitQuizManually = async () => {
+    if (isSubmitting) return
+    setIsSubmitting(true)
+    if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
+    const result = calculateScore()
+    await saveResult(result, false)
+    setScore(result.finalScore)
+    setCorrectAnswersCount(result.correctAnswers)
+    setShowResults(true)
+    setIsSubmitting(false)
+    fetchExplanations(result.processedAnswers)
   }
 
-  const formatTime = (s) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`
+  const submitQuizAutomatically = async () => {
+    if (isSubmitting) return
+    setIsSubmitting(true)
+    if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
+    const processedAnswers = selectedQuiz?.questions?.map((q, i) => ({
+      questionId: q._id || q.id || i.toString(),
+      selectedOption: -1,
+      isCorrect: false
+    })) || []
+    await saveResult({ correctAnswers: 0, finalScore: 0, processedAnswers }, true)
+    setScore(0)
+    setCorrectAnswersCount(0)
+    setShowResults(true)
+    setIsSubmitting(false)
+  }
 
   const handleAnswer = (questionId, option) => {
     if (isSubmitting || timeExpired) return
@@ -213,272 +241,88 @@ export default function Student() {
 
   const backToQuizList = () => {
     if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
-    setSelectedQuiz(null); setShowResults(false); setStartTime(null)
-    setTimeLeft(null); setTimeExpired(false); setIsSubmitting(false)
-    setAnswers({}); setCurrentQuestionIndex(0)
-    setTabSwitchCount(0); setShowTabWarning(false)
-    setExplanations([])  // clear explanations when going back
+    setSelectedQuiz(null)
+    setShowResults(false)
+    setStartTime(null)
+    setTimeLeft(null)
+    setTimeExpired(false)
+    setIsSubmitting(false)
+    setAnswers({})
+    setCurrentQuestionIndex(0)
+    setTabSwitchCount(0)
+    setShowTabWarning(false)
+    setExplanations([])
   }
 
-  const getScoreEmoji = (s) => s >= 80 ? '🏆' : s >= 60 ? '⭐' : s >= 40 ? '👍' : '📚'
-  const getDifficultyTag = (d) => d === 'easy' ? styles.metaTagGreen : d === 'hard' ? styles.metaTagRed : styles.metaTagAmber
+  // ─────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────
 
-  if (loading) return <div className={styles.container}><div className={styles.loading}>Loading...</div></div>
-  if (!user || user.role !== 'student') return (
-    <div className={styles.container}><div className={styles.alertError}>Access denied.</div></div>
+  if (loading) return (
+    <div className={styles.container}>
+      <div className={styles.loading}>Loading...</div>
+    </div>
   )
 
-  /* ── RESULTS VIEW ── */
+  if (!user || user.role !== 'student') return (
+    <div className={styles.container}>
+      <div className={styles.alertError}>Access denied.</div>
+    </div>
+  )
+
+  // ── Results view ──
   if (showResults && selectedQuiz) {
     const timeTaken = startTime ? Math.floor((new Date() - startTime) / 1000) : 0
     return (
-      <div className={styles.container}>
-        <div className={styles.nav}>
-          <h1 className={styles.navTitle}>Quiz Results</h1>
-          <div className={styles.navRight}>
-            <span className={styles.navUser}>{user.name}</span>
-            <button className={styles.navBtn} onClick={() => router.push('/')}>Home</button>
-            <button className={styles.navBtn} onClick={() => router.push('/results')}>All Results</button>
-          </div>
-        </div>
-
-        {/* Score card */}
-        <div className={styles.scoreCard}>
-          <div className={styles.scoreEmoji}>{timeExpired ? '⏰' : getScoreEmoji(score)}</div>
-          <div className={styles.scoreTitle}>{timeExpired ? 'Time Expired!' : 'Quiz Completed!'}</div>
-          <div className={styles.scoreQuiz}>{selectedQuiz.title}</div>
-          <div className={styles.scoreBig}>{score}%</div>
-          <div className={styles.scoreStats}>
-            <div className={styles.scoreStat}>
-              <span className={styles.scoreStatVal}>{correctAnswersCount}</span>
-              <span className={styles.scoreStatLbl}>Correct</span>
-            </div>
-            <div className={styles.scoreStat}>
-              <span className={styles.scoreStatVal}>{selectedQuiz.questions.length - correctAnswersCount}</span>
-              <span className={styles.scoreStatLbl}>Wrong</span>
-            </div>
-            <div className={styles.scoreStat}>
-              <span className={styles.scoreStatVal}>{Math.floor(timeTaken/60)}m {timeTaken%60}s</span>
-              <span className={styles.scoreStatLbl}>Time Taken</span>
-            </div>
-          </div>
-          <div className={styles.scoreActions}>
-            <button className={styles.btnPrimary} onClick={backToQuizList}>Take Another Quiz</button>
-            <button className={styles.btnOutline} onClick={() => router.push('/results')}>View All Results</button>
-          </div>
-        </div>
-
-        {/* Review */}
-        {!timeExpired && (
-          <>
-            <div className={styles.reviewTitle}>Review Answers</div>
-
-            {/* ── AI EXPLANATIONS LOADING STATE ── */}
-            {isFetchingExplanations && (
-              <div className={styles.alertWarning} style={{ textAlign: 'center', marginBottom: 16 }}>
-                ✨ Please wait we are generating explanations for your wrong answers...
-              </div>
-            )}
-            {/* ── END AI EXPLANATIONS LOADING STATE ── */}
-
-            {selectedQuiz.questions.map((q, i) => {
-              const qid = q._id || q.id || i.toString()
-              const userAnswer = answers[qid]
-              const isCorrect = userAnswer !== undefined && userAnswer === q.correctAnswer
-
-              // ── find explanation for this question if it exists ──
-              const explanationObj = explanations.find(e => e.questionId === qid)
-
-              return (
-                <div key={qid} className={styles.reviewCard}>
-                  <div className={styles.reviewQuestion}>Q{i+1}: {q.question}</div>
-                  {q.options?.map((opt, j) => (
-                    <div key={j} className={`${styles.reviewOption} ${
-                      j === q.correctAnswer ? styles.reviewCorrect :
-                      j === userAnswer && !isCorrect ? styles.reviewWrong : styles.reviewNeutral
-                    }`}>
-                      {j === q.correctAnswer ? '✓' : j === userAnswer && !isCorrect ? '✗' : '○'} {opt}
-                      {j === q.correctAnswer && ' (Correct)'}
-                      {j === userAnswer && j !== q.correctAnswer && ' (Your answer)'}
-                    </div>
-                  ))}
-                  {userAnswer === undefined && <div className={styles.reviewUnanswered}>⚠️ Not answered</div>}
-
-                  {/* ── AI EXPLANATION BOX — only shows on wrong answers ── */}
-                  {!isCorrect && userAnswer !== undefined && (
-                    <div className={styles.aiExplanation}>
-                      <span className={styles.aiExplanationLabel}>✨ Explanation</span>
-                      {explanationObj
-                        ? <p className={styles.aiExplanationText}>{explanationObj.explanation}</p>
-                        : isFetchingExplanations
-                          ? <p className={styles.aiExplanationText} style={{ opacity: 0.5 }}>Loading...</p>
-                          : null
-                      }
-                    </div>
-                  )}
-                  {/* ── END AI EXPLANATION BOX ── */}
-
-                </div>
-              )
-            })}
-          </>
-        )}
-
-        {timeExpired && (
-          <div className={styles.alertExpired}>
-            ⏰ Quiz timed out — all answers marked incorrect. Try again within the time limit!
-          </div>
-        )}
-      </div>
+      <QuizResults
+        quiz={selectedQuiz}
+        score={score}
+        correctAnswersCount={correctAnswersCount}
+        answers={answers}
+        timeTaken={timeTaken}
+        timeExpired={timeExpired}
+        explanations={explanations}
+        isFetchingExplanations={isFetchingExplanations}
+        user={user}
+        onTakeAnother={backToQuizList}
+        onViewResults={() => router.push('/results')}
+        onGoHome={() => router.push('/')}
+        onGoAllResults={() => router.push('/results')}
+      />
     )
   }
 
-  /* ── QUIZ TAKING VIEW ── */
+  // ── Quiz taking view ──
   if (selectedQuiz?.questions?.length > 0) {
-    const currentQuestion = selectedQuiz.questions[currentQuestionIndex]
-    if (!currentQuestion) return <div className={styles.container}><div className={styles.alertError}>Error loading question.</div></div>
-    const questionId = currentQuestion._id || currentQuestion.id || currentQuestionIndex.toString()
-    const progress = ((currentQuestionIndex + 1) / selectedQuiz.questions.length) * 100
-    const answeredCount = Object.keys(answers).length
-
     return (
-      <div
-        className={styles.container}
-        onCopy={(e) => e.preventDefault()}
-        onPaste={(e) => e.preventDefault()}
-        onContextMenu={(e) => e.preventDefault()}
-        onKeyDown={(e) => {
-          if (e.ctrlKey && ['c', 'v', 'u', 's'].includes(e.key.toLowerCase())) e.preventDefault()
-          if (e.key === 'F12') e.preventDefault()
-        }}
-      >
-        <div className={styles.nav}>
-          <h1 className={styles.navTitle}>{selectedQuiz.title}</h1>
-          <div className={styles.navRight}>
-            {selectedQuiz.timerEnabled && timeLeft !== null && !timeExpired && (
-              <span className={timeLeft < 300 ? styles.timerWarning : styles.timerNormal}>
-                ⏰ {formatTime(timeLeft)}
-              </span>
-            )}
-            <button className={styles.navBtnDanger} onClick={backToQuizList}>Exit Quiz</button>
-          </div>
-        </div>
-
-        {selectedQuiz.timerEnabled && timeLeft !== null && timeLeft < 300 && !timeExpired && (
-          <div className={styles.alertWarning}>⚠️ Less than 5 minutes remaining!</div>
-        )}
-        {timeExpired && (
-          <div className={styles.alertExpired}>⏰ Time expired! Submitting your quiz...</div>
-        )}
-
-        {showTabWarning && tabSwitchCount < 2 && (
-          <div className={styles.alertWarning}>
-            ⚠️ Warning ({tabSwitchCount}/2) — You switched tabs! Do it again and your quiz will be auto-submitted.
-            <button onClick={() => setShowTabWarning(false)} style={{ marginLeft: 12, cursor: 'pointer', fontWeight: 600 }}>
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        <div className={styles.progressBar}>
-          <div className={styles.progressFill} style={{ width: `${progress}%` }} />
-        </div>
-
-        <div className={styles.dotsNav}>
-          {selectedQuiz.questions.map((_, i) => {
-            const qid = selectedQuiz.questions[i]._id || selectedQuiz.questions[i].id || i.toString()
-            return (
-              <button key={i}
-                className={`${styles.dot} ${i === currentQuestionIndex ? styles.dotCurrent : answers[qid] !== undefined ? styles.dotAnswered : ''}`}
-                onClick={() => !isSubmitting && !timeExpired && setCurrentQuestionIndex(i)}>
-                {i + 1}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className={styles.questionCard}>
-          <div className={styles.questionMeta}>
-            <span className={styles.questionNum}>Question {currentQuestionIndex + 1} of {selectedQuiz.questions.length}</span>
-            <div className={styles.questionTags}>
-              <span className={`${styles.metaTag} ${getDifficultyTag(selectedQuiz.difficulty)}`}>{selectedQuiz.difficulty}</span>
-              <span className={styles.metaTag}>{selectedQuiz.category}</span>
-            </div>
-          </div>
-
-          <div className={styles.questionText}>{currentQuestion.question}</div>
-
-          <div className={styles.optionsList}>
-            {currentQuestion.options?.map((option, i) => {
-              const isSelected = answers[questionId] === i
-              return (
-                <div key={i}
-                  className={`${styles.optionItem} ${isSelected ? styles.optionSelected : ''} ${isSubmitting || timeExpired ? styles.optionDisabled : ''}`}
-                  onClick={() => handleAnswer(questionId, i)}>
-                  <div className={`${styles.optionRadio} ${isSelected ? styles.optionRadioSelected : ''}`} />
-                  <span className={`${styles.optionText} ${isSelected ? styles.optionTextSelected : ''}`}>{option}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className={styles.quizNav}>
-          <button className={styles.btnNav} onClick={() => setCurrentQuestionIndex(p => p-1)}
-            disabled={currentQuestionIndex === 0 || isSubmitting || timeExpired}>
-            ← Previous
-          </button>
-          <span style={{fontSize:'13px',color:'#64748b',fontWeight:600}}>{answeredCount}/{selectedQuiz.questions.length} answered</span>
-          {currentQuestionIndex < selectedQuiz.questions.length - 1 ? (
-            <button className={styles.btnNav} onClick={() => setCurrentQuestionIndex(p => p+1)}
-              disabled={isSubmitting || timeExpired}>
-              Next →
-            </button>
-          ) : (
-            <button className={styles.btnSubmit} onClick={submitQuizManually} disabled={isSubmitting || timeExpired}>
-              {isSubmitting ? '⏳ Submitting...' : '✓ Submit Quiz'}
-            </button>
-          )}
-        </div>
-      </div>
+      <QuizTaking
+        quiz={selectedQuiz}
+        currentQuestionIndex={currentQuestionIndex}
+        answers={answers}
+        timeLeft={timeLeft}
+        timeExpired={timeExpired}
+        isSubmitting={isSubmitting}
+        showTabWarning={showTabWarning}
+        tabSwitchCount={tabSwitchCount}
+        onAnswer={handleAnswer}
+        onNext={() => setCurrentQuestionIndex(p => p + 1)}
+        onPrev={() => setCurrentQuestionIndex(p => p - 1)}
+        onNavigateTo={(i) => setCurrentQuestionIndex(i)}
+        onSubmit={submitQuizManually}
+        onExit={backToQuizList}
+        onDismissWarning={() => setShowTabWarning(false)}
+      />
     )
   }
 
-  /* ── QUIZ LIST VIEW ── */
+  // ── Quiz list view ──
   return (
-    <div className={styles.container}>
-      <div className={styles.nav}>
-        <h1 className={styles.navTitle}>Available Quizzes</h1>
-        <div className={styles.navRight}>
-          <span className={styles.navUser}>{user.name}</span>
-          <button className={styles.navBtn} onClick={() => router.push('/')}>Home</button>
-          <button className={styles.navBtn} onClick={() => router.push('/results')}>My Results</button>
-        </div>
-      </div>
-
-      {quizzes.length === 0 ? (
-        <div className={styles.emptyState}>
-          <div className={styles.emptyIcon}>📋</div>
-          <div className={styles.emptyTitle}>No quizzes available yet</div>
-          <div className={styles.emptyText}>Check back later — your admin will add quizzes soon!</div>
-        </div>
-      ) : (
-        <div className={styles.quizGrid}>
-          {quizzes.map(quiz => (
-            <div key={quiz._id} className={styles.quizCard}>
-              <h3 className={styles.quizCardTitle}>{quiz.title}</h3>
-              {quiz.description && <p className={styles.quizCardDesc}>{quiz.description}</p>}
-              <div className={styles.quizMeta}>
-                <span className={`${styles.metaTag} ${getDifficultyTag(quiz.difficulty)}`}>{quiz.difficulty}</span>
-                <span className={styles.metaTag}>{quiz.category}</span>
-                <span className={styles.metaTag}>📝 {quiz.questions?.length || 0} questions</span>
-                <span className={styles.metaTag}>{quiz.timerEnabled ? `⏰ ${quiz.timeLimit} min` : '∞ No timer'}</span>
-              </div>
-              <button className={styles.startBtn} onClick={() => startQuiz(quiz)}>Start Quiz →</button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <QuizList
+      quizzes={quizzes}
+      onStartQuiz={startQuiz}
+      user={user}
+      onGoHome={() => router.push('/')}
+      onGoResults={() => router.push('/results')}
+    />
   )
 }
