@@ -12,10 +12,10 @@ export async function GET(request) {
     const decoded = token ? verifyToken(token) : null
     // superadmin sees all, admin sees only their own, student/no auth sees all active
     const filter = decoded?.role === 'superadmin'
-      ? { isActive: true }
-      : decoded?.role === 'admin'
-        ? { isActive: true, createdBy: decoded.id }
-        : { isActive: true, isPublic: true }
+        ? { isActive: true }
+        : decoded?.role === 'admin' || decoded?.role === 'student'
+          ? { isActive: true }
+          : { isActive: true, isPublic: true }
 
 
     const quizzes = await Quiz.find(filter)

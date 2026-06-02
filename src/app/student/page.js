@@ -76,7 +76,10 @@ export default function Student() {
 
   const fetchQuizzes = async () => {
     try {
-      const res = await fetch('/api/quizzes')
+      const token = localStorage.getItem('token')
+      const res = await fetch('/api/quizzes', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
       const data = await res.json()
       if (res.ok) setQuizzes(data.quizzes || [])
     } catch (e) { console.error(e); setQuizzes([]) }
