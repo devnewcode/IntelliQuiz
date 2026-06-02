@@ -61,7 +61,9 @@ const QuizSchema = new mongoose.Schema({
   timerEnabled: {
     type: Boolean,
     default: true
-  }
+  },
+  isPublic: {type: Boolean, default: false},
+  passcode: {type: String, default: ''}
 })
 
 export default mongoose.models.Quiz || mongoose.model('Quiz', QuizSchema)

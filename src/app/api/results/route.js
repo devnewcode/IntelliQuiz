@@ -15,7 +15,7 @@ export async function GET(request) {
 
     const token = authHeader.split(' ')[1]
     const decoded = verifyToken(token)
-    
+
     if (!decoded) {
       return NextResponse.json(
         { message: 'Invalid token' },
@@ -27,26 +27,26 @@ export async function GET(request) {
 
     let results
     if (decoded.role === 'superadmin') {
-  // superadmin sees all results
-  results = await Result.find({})
-    .populate('quiz', 'title')
-    .populate('user', 'name username email')
-    .sort({ completedAt: -1 })
-} else if (decoded.role === 'admin') {
+      // superadmin sees all results
+      results = await Result.find({})
+        .populate('quiz', 'title')
+        .populate('user', 'name username email')
+        .sort({ completedAt: -1 })
+    } else if (decoded.role === 'admin') {
 
-  // admin sees only results from their own quizzes
-  const adminQuizIds = await Quiz.find({ createdBy: decoded.id }).distinct('_id')
-  results = await Result.find({ quiz: { $in: adminQuizIds } })
-    .populate('quiz', 'title')
-    .populate('user', 'name username email')
-    .sort({ completedAt: -1 })
-}
-else {
-  // here the student will see only their own results ──
-  results = await Result.find({ user: decoded.id })
-    .populate('quiz', 'title')
-    .sort({ completedAt: -1 })
-}
+      // admin sees only results from their own quizzes
+      const adminQuizIds = await Quiz.find({ createdBy: decoded.id }).distinct('_id')
+      results = await Result.find({ quiz: { $in: adminQuizIds } })
+        .populate('quiz', 'title')
+        .populate('user', 'name username email')
+        .sort({ completedAt: -1 })
+    }
+    else {
+      // here the student will see only their own results ──
+      results = await Result.find({ user: decoded.id })
+        .populate('quiz', 'title')
+        .sort({ completedAt: -1 })
+    }
 
     return NextResponse.json({ results })
   } catch (error) {
@@ -60,36 +60,65 @@ else {
 
 export async function POST(request) {
   try {
+
+    // old code requires auth always
+    // const authHeader = request.headers.get('authorization')
+    // if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    //   return NextResponse.json(
+    //     { message: 'Authentication required' },
+    //     { status: 401 }
+    //   )
+    // }
+    // const token = authHeader.split(' ')[1]
+    // const decoded = verifyToken(token)
+    // if (!decoded) {
+    //   return NextResponse.json(
+    //     { message: 'Invalid token' },
+    //     { status: 401 }
+    //   )
+    // }
+
+
+    //new code allows both authenticated and guest submissions
     const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { message: 'Authentication required' },
-        { status: 401 }
-      )
+    const token = authHeader?.split(' ')[1]
+    const decoded = token ? verifyToken(token) : null
+    const body = await request.json()
+    const { quizId, answers, score, totalQuestions, correctAnswers, timeTaken, guestName, guestEmail } = body
+
+    // Must have either a logged in user OR guest name+email
+    if (!decoded && (!guestName || !guestEmail)) {
+      return NextResponse.json({ message: 'Login or provide name and email to submit' }, { status: 401 })
     }
 
-    const token = authHeader.split(' ')[1]
-    const decoded = verifyToken(token)
-    
-    if (!decoded) {
-      return NextResponse.json(
-        { message: 'Invalid token' },
-        { status: 401 }
-      )
-    }
+
+
+
 
     await dbConnect()
 
-    const { quizId, answers, score, totalQuestions, correctAnswers, timeTaken } = await request.json()
+    // const { quizId, answers, score, totalQuestions, correctAnswers, timeTaken } = await request.json()
 
+
+    //old code
+    // const result = await Result.create({
+    //   quiz: quizId,
+    //   user: decoded.id,
+    //   answers,
+    //   score,
+    //   totalQuestions,
+    //   correctAnswers,
+    //   timeTaken
+    // })
+
+
+    //updated for guest also
     const result = await Result.create({
       quiz: quizId,
-      user: decoded.id,
-      answers,
-      score,
-      totalQuestions,
-      correctAnswers,
-      timeTaken
+      user: decoded?.id || null,
+      answers, score, totalQuestions, correctAnswers, timeTaken,
+      guestName: guestName || '',
+      guestEmail: guestEmail || ''
     })
 
     const populatedResult = await Result.findById(result._id)

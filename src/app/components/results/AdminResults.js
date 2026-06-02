@@ -3,7 +3,8 @@ import { useState } from 'react'
 import styles from '../../results/page.module.css'
 
 // this will show admin or superadmin grouped view - stats, filter, expandable student cards.
-// here the props are:
+// also handles guest results (no user account) from public quiz play.
+// Props:
 //   results       — full results array
 //   getScoreColor — (score) => styles className
 //   getScoreEmoji — (score) => emoji string
@@ -12,22 +13,33 @@ export default function AdminResults({ results, getScoreColor, getScoreEmoji }) 
   const [filter, setFilter] = useState('all')
   const [expandedStudent, setExpandedStudent] = useState(null)
 
-  // Group results by student
+  // ── Group results by student OR guest ──
+  // For logged-in students: group by user._id
+  // For guests: group by guestEmail
   const groupedByStudent = (results || []).reduce((acc, result) => {
-    if (!result.user) return acc
-    const uid = result.user._id || result.user.email
+    const uid = result.user?._id || result.user?.email || result.guestEmail
+    if (!uid) return acc
+
     if (!acc[uid]) {
-      acc[uid] = { user: result.user, attempts: [] }
+      acc[uid] = {
+        // if no user account, build a fake user object from guest fields
+        user: result.user || {
+          name: result.guestName || 'Guest',
+          email: result.guestEmail || ''
+        },
+        attempts: [],
+        isGuest: !result.user  // true if this is a guest participant
+      }
     }
     acc[uid].attempts.push(result)
     return acc
   }, {})
 
-  const studentList = Object.values(groupedByStudent).map(({ user: u, attempts }) => {
+  const studentList = Object.values(groupedByStudent).map(({ user: u, attempts, isGuest }) => {
     const avgScore = Math.round(attempts.reduce((a, r) => a + r.score, 0) / attempts.length)
     const best = Math.max(...attempts.map(r => r.score))
     const latest = [...attempts].sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))[0]
-    return { user: u, attempts, avgScore, best, latest }
+    return { user: u, attempts, avgScore, best, latest, isGuest }
   })
 
   // Stats
@@ -101,7 +113,7 @@ export default function AdminResults({ results, getScoreColor, getScoreEmoji }) 
         </div>
       )}
 
-      {/* Student cards */}
+      {/* Student / Guest cards */}
       {filteredStudents.length === 0 ? (
         <div className={styles.emptyState}>
           <div className={styles.emptyIcon}>📋</div>
@@ -110,7 +122,7 @@ export default function AdminResults({ results, getScoreColor, getScoreEmoji }) 
         </div>
       ) : (
         <div className={styles.studentList}>
-          {filteredStudents.map(({ user: u, attempts, avgScore, best }) => {
+          {filteredStudents.map(({ user: u, attempts, avgScore, best, isGuest }) => {
             const isOpen = expandedStudent === (u._id || u.email)
             return (
               <div
@@ -121,13 +133,31 @@ export default function AdminResults({ results, getScoreColor, getScoreEmoji }) 
                 <div
                   className={styles.studentRow}
                   onClick={() => setExpandedStudent(isOpen ? null : (u._id || u.email))}>
-                  <div className={styles.studentAvatar}>
+
+                  {/* Avatar — orange for guests, purple for students */}
+                  <div
+                    className={styles.studentAvatar}
+                    style={isGuest ? { background: 'linear-gradient(135deg,#d97706,#f59e0b)' } : {}}>
                     {u.name?.[0]?.toUpperCase() || '?'}
                   </div>
+
                   <div className={styles.studentMeta}>
-                    <div className={styles.studentName}>{u.name}</div>
+                    <div className={styles.studentName}>
+                      {u.name}
+                      {/* Guest badge */}
+                      {isGuest && (
+                        <span style={{
+                          marginLeft: 8, fontSize: 11,
+                          background: 'rgba(245,158,11,.2)', color: '#fcd34d',
+                          padding: '2px 8px', borderRadius: 20, fontWeight: 700
+                        }}>
+                          Guest
+                        </span>
+                      )}
+                    </div>
                     <div className={styles.studentEmail}>{u.email}</div>
                   </div>
+
                   <div className={styles.studentSummaryStats}>
                     <div className={styles.summStat}>
                       <span className={styles.summStatVal}>{attempts.length}</span>
@@ -144,6 +174,7 @@ export default function AdminResults({ results, getScoreColor, getScoreEmoji }) 
                       <span className={styles.summStatLbl}>Avg</span>
                     </div>
                   </div>
+
                   <div className={`${styles.avgBadge} ${getScoreColor(avgScore)}`}>
                     {getScoreEmoji(avgScore)} {avgScore}%
                   </div>

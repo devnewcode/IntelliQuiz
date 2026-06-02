@@ -11,7 +11,11 @@ const ResultSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    // required: true
+
+    //for guest use as well
+    required: false
+
   },
   answers: [{
     questionId: String,
@@ -39,7 +43,9 @@ const ResultSchema = new mongoose.Schema({
   completedAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  guestName: { type: String, default: '' },
+  guestEmail: { type: String, default: '' }
 })
 
 ResultSchema.index({ quiz: 1, user: 1 })

@@ -87,6 +87,33 @@ export default function CreateQuizForm({ newQuiz, onChange, isSubmitting }) {
               disabled={isSubmitting}
               placeholder="30" />
           </div>
+
+        )}
+      </div>
+      {/* Public quiz toggle */}
+      <div className={styles.flexRow}>
+        <div className={`${styles.formGroup} ${styles.flexColumn}`}>
+          <label className={styles.checkboxLabel}>
+            <input
+              className={styles.checkbox}
+              type="checkbox"
+              checked={newQuiz.isPublic || false}
+              onChange={e => onChange({ ...newQuiz, isPublic: e.target.checked })}
+              disabled={isSubmitting} />
+            Allow Public Play (no login required)
+          </label>
+        </div>
+        {newQuiz.isPublic && (
+          <div className={`${styles.formGroup} ${styles.flexColumn}`}>
+            <label className={styles.label}>Passcode (optional)</label>
+            <input
+              className={styles.input}
+              type="text"
+              value={newQuiz.passcode || ''}
+              onChange={e => onChange({ ...newQuiz, passcode: e.target.value })}
+              placeholder="Leave blank for no passcode"
+              disabled={isSubmitting} />
+          </div>
         )}
       </div>
     </div>

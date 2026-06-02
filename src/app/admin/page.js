@@ -6,19 +6,28 @@ import styles from './page.module.css'
 
 // ── Components ──
 import CreateQuizForm from '../components/admin/CreateQuizForm'
-import AIGenerator    from '../components/admin/AIGenerator'
+import AIGenerator from '../components/admin/AIGenerator'
 import QuestionEditor from '../components/admin/QuestionEditor'
-import AdminQuizList  from '../components/admin/AdminQuizList'
+import AdminQuizList from '../components/admin/AdminQuizList'
 
 export default function Admin() {
   const { user, loading } = useAuth()
   const router = useRouter()
 
-  // ── Quiz being built ──
+  // ── Quiz being built ──(old code)
+  // const [newQuiz, setNewQuiz] = useState({
+  //   title: '', description: '', category: 'General',
+  //   difficulty: 'medium', timeLimit: 30, timerEnabled: true, questions: []
+  // })
+
+  //quiz being built updated for public page also
   const [newQuiz, setNewQuiz] = useState({
     title: '', description: '', category: 'General',
-    difficulty: 'medium', timeLimit: 30, timerEnabled: true, questions: []
+    difficulty: 'medium', timeLimit: 30, timerEnabled: true, questions: [],
+    isPublic: false, passcode: ''
   })
+
+
 
   // ── Existing quizzes ──
   const [quizzes, setQuizzes] = useState([])
@@ -70,7 +79,8 @@ export default function Admin() {
         setMessage('Quiz created successfully!')
         setNewQuiz({
           title: '', description: '', category: 'General',
-          difficulty: 'medium', timeLimit: 30, timerEnabled: true, questions: []
+          difficulty: 'medium', timeLimit: 30, timerEnabled: true, questions: [],
+          isPublic: false, passcode: ''
         })
         fetchQuizzes()
       } else {
@@ -151,11 +161,10 @@ export default function Admin() {
 
       {/* Alert message */}
       {message && (
-        <div className={`${styles.alert} ${
-          message.includes('success') || message.includes('✓')
-            ? styles.alertSuccess
-            : styles.alertError
-        }`}>
+        <div className={`${styles.alert} ${message.includes('success') || message.includes('✓')
+          ? styles.alertSuccess
+          : styles.alertError
+          }`}>
           {message}
         </div>
       )}

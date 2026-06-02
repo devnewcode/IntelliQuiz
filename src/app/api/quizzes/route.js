@@ -12,12 +12,12 @@ export async function GET(request) {
     const decoded = token ? verifyToken(token) : null
     // superadmin sees all, admin sees only their own, student/no auth sees all active
     const filter = decoded?.role === 'superadmin'
-    ? { isActive: true }
-    : decoded?.role === 'admin'
-    ? { isActive: true, createdBy: decoded.id }
-    : { isActive: true }
-    
-    
+      ? { isActive: true }
+      : decoded?.role === 'admin'
+        ? { isActive: true, createdBy: decoded.id }
+        : { isActive: true, isPublic: true }
+
+
     const quizzes = await Quiz.find(filter)
       .populate('createdBy', 'name username')
       .sort({ createdAt: -1 })
@@ -44,7 +44,7 @@ export async function POST(request) {
 
     const token = authHeader.split(' ')[1]
     const decoded = verifyToken(token)
-    
+
     if (!decoded || decoded.role !== 'admin') {
       return NextResponse.json(
         { message: 'Admin access required' },
@@ -54,7 +54,7 @@ export async function POST(request) {
 
     await dbConnect()
 
-    const { title, description, questions, category, difficulty, timeLimit, timerEnabled } = await request.json()
+    const { title, description, questions, category, difficulty, timeLimit, timerEnabled, isPublic, passcode } = await request.json()
 
     if (!title || !questions || questions.length === 0) {
       return NextResponse.json(
@@ -71,7 +71,9 @@ export async function POST(request) {
       difficulty,
       timeLimit: timeLimit || 30,
       timerEnabled: timerEnabled !== false,
-      createdBy: decoded.id
+      createdBy: decoded.id,
+      isPublic: isPublic || false,
+      passcode: passcode || ''
     })
 
     const populatedQuiz = await Quiz.findById(quiz._id)
