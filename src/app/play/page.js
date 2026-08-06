@@ -593,7 +593,7 @@ export default function PlayPage() {
 
         {timeExpired && (
           <div className={quizStyles.alertExpired}>
-            ⏰ Time ran out — here's how you did on the questions you answered.
+            {"⏰ Time ran out — here's how you did on the questions you answered."}
           </div>
         )}
       </div>
