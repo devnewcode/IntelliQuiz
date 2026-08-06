@@ -1,6 +1,8 @@
+
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import styles from './page.module.css'
+import quizStyles from '../student/page.module.css'
 
 // public quiz play page
 export default function PlayPage() {
@@ -13,6 +15,7 @@ export default function PlayPage() {
   const [guestEmail, setGuestEmail] = useState('')
   const [passcode, setPasscode] = useState('')
   const [entryError, setEntryError] = useState('')
+  const [isCheckingPasscode, setIsCheckingPasscode] = useState(false)
 
   // public quizzes
   const [quizzes, setQuizzes] = useState([])
@@ -29,12 +32,19 @@ export default function PlayPage() {
   const [timeExpired, setTimeExpired] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // results
+  // results (populated from the server's graded response, not calculated locally)
   const [score, setScore] = useState(0)
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
   const [timeTaken, setTimeTaken] = useState(0)
+  const [reviewData, setReviewData] = useState([])
   const [explanations, setExplanations] = useState([])
   const [isFetchingExplanations, setIsFetchingExplanations] = useState(false)
+
+  // Keeps a live copy of `answers` so the timer's setInterval callback
+  // (which closes over stale state) can still submit whatever the user
+  // had actually selected when time runs out.
+  const answersRef = useRef({})
+  useEffect(() => { answersRef.current = answers }, [answers])
 
   // fetch quizzes on mount
   useEffect(() => {
@@ -53,8 +63,9 @@ export default function PlayPage() {
     setQuizzesLoading(false)
   }
 
-  // start
-  const handleStart = () => {
+  // start (async — verifies passcode against the server; the real
+  // passcode is never sent to the browser)
+  const handleStart = async () => {
     setEntryError('')
 
     if (!guestName.trim()) { setEntryError('Please enter your name'); return }
@@ -64,28 +75,40 @@ export default function PlayPage() {
     const selectedQuiz = quizzes.find(q => q._id === selectedQuizId)
     if (!selectedQuiz) { setEntryError('Quiz not found'); return }
 
-    // Check passcode if quiz requires one
-    if (selectedQuiz.passcode && selectedQuiz.passcode.trim() !== '') {
-      if (passcode.trim() !== selectedQuiz.passcode.trim()) {
-        setEntryError('Incorrect passcode'); return
+    if (selectedQuiz.hasPasscode) {
+      setIsCheckingPasscode(true)
+      try {
+        const res = await fetch('/api/public-quizzes/verify-passcode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quizId: selectedQuiz._id, passcode })
+        })
+        const data = await res.json()
+        setIsCheckingPasscode(false)
+
+        if (!res.ok || !data.valid) {
+          setEntryError('Incorrect passcode')
+          return
+        }
+      } catch (e) {
+        setIsCheckingPasscode(false)
+        setEntryError('Could not verify passcode. Please try again.')
+        return
       }
     }
 
     startQuiz(selectedQuiz)
   }
 
-  // shuffle
   const shuffleArray = (arr) => [...arr].sort(() => Math.random() - 0.5)
 
-  // start quiz
+  // start quiz — quiz.questions no longer contains correctAnswer, so we
+  // only shuffle option order; there's nothing sensitive to recompute.
   const startQuiz = (selectedQuiz) => {
-    // Shuffle questions and options
-    const shuffledQuestions = shuffleArray(selectedQuiz.questions).map(q => {
-      const correctAnswerText = q.options[q.correctAnswer]
-      const shuffledOptions = shuffleArray(q.options)
-      const newCorrectIndex = shuffledOptions.indexOf(correctAnswerText)
-      return { ...q, options: shuffledOptions, correctAnswer: newCorrectIndex }
-    })
+    const shuffledQuestions = shuffleArray(selectedQuiz.questions).map(q => ({
+      ...q,
+      options: shuffleArray(q.options)
+    }))
 
     const quizWithShuffled = { ...selectedQuiz, questions: shuffledQuestions }
     setQuiz(quizWithShuffled)
@@ -96,9 +119,9 @@ export default function PlayPage() {
     setIsSubmitting(false)
     setExplanations([])
     setIsFetchingExplanations(false)
+    setReviewData([])
     setScreen('quiz')
 
-    // timer
     if (selectedQuiz.timerEnabled && selectedQuiz.timeLimit > 0) {
       const totalSeconds = selectedQuiz.timeLimit * 60
       setTimeLeft(totalSeconds)
@@ -107,7 +130,7 @@ export default function PlayPage() {
           if (prev <= 1) {
             clearInterval(interval)
             setTimeExpired(true)
-            submitQuiz(quizWithShuffled, {}, true)
+            submitQuiz(quizWithShuffled, answersRef.current, true)
             return 0
           }
           return prev - 1
@@ -119,103 +142,89 @@ export default function PlayPage() {
     }
   }
 
-  // answer selection
   const handleAnswer = (questionId, optionIndex) => {
     if (isSubmitting || timeExpired) return
     setAnswers(prev => ({ ...prev, [questionId]: optionIndex }))
   }
 
-  // calculate score
-  const calculateScore = (quizData, answersData) => {
-    let correct = 0
-    const processedAnswers = quizData.questions.map((q, i) => {
-      const questionId = q._id || q.id || i.toString()
-      const userAnswer = answersData[questionId]
-      const isCorrect = userAnswer !== undefined && userAnswer === q.correctAnswer
-      if (isCorrect) correct++
-      return { questionId, selectedOption: userAnswer ?? -1, isCorrect }
-    })
-    const finalScore = Math.round((correct / quizData.questions.length) * 100)
-    return { correct, finalScore, processedAnswers }
+  // exit back to the entry screen mid-quiz (guest-friendly equivalent of
+  // the student page's "Exit Quiz" button — no auth session to worry about)
+  const handleExit = () => {
+    if (!window.confirm('Exit this quiz? Your progress will be lost.')) return
+    if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
+    setScreen('entry')
+    setQuiz(null)
+    setAnswers({})
+    setSelectedQuizId('')
+    setPasscode('')
   }
 
-  // submit
+  // submit — sends option TEXT (not index, since shuffle order is only
+  // known client-side) and lets the server grade it against the real quiz.
   const submitQuiz = async (quizData, answersData, expired = false) => {
     if (isSubmitting) return
     setIsSubmitting(true)
     if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
 
+    const dataQuiz = quizData || quiz
+    const dataAnswers = answersData || {}
+
     const taken = startTime ? Math.floor((new Date() - startTime) / 1000) : 0
     setTimeTaken(taken)
 
-    let finalScore = 0
-    let correct = 0
-    let processedAnswers = []
+    const payloadAnswers = dataQuiz.questions.map((q, i) => {
+      const questionId = q._id || q.id || i.toString()
+      const selectedIndex = dataAnswers[questionId]
+      const selectedOptionText = selectedIndex !== undefined ? q.options[selectedIndex] : null
+      return { questionId, selectedOptionText }
+    })
 
-    if (!expired) {
-      const result = calculateScore(quizData || quiz, answersData || answers)
-      finalScore = result.finalScore
-      correct = result.correct
-      processedAnswers = result.processedAnswers
-    } else {
-      // expired
-      processedAnswers = (quizData || quiz).questions.map((q, i) => ({
-        questionId: q._id || q.id || i.toString(),
-        selectedOption: -1,
-        isCorrect: false
-      }))
-    }
-
-    setScore(finalScore)
-    setCorrectAnswersCount(correct)
-
-    // save result
+    let gradedResult = null
     try {
-      await fetch('/api/results', {
+      const res = await fetch('/api/results', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          quizId: (quizData || quiz)._id,
-          answers: processedAnswers,
-          score: finalScore,
-          totalQuestions: (quizData || quiz).questions.length,
-          correctAnswers: correct,
+          quizId: dataQuiz._id,
+          answers: payloadAnswers,
           timeTaken: taken,
           guestName: guestName.trim(),
           guestEmail: guestEmail.trim()
         })
       })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        gradedResult = data.result
+      }
     } catch (e) {
       console.error('Failed to save result:', e)
     }
 
-    if (!expired) {
-      fetchExplanations(processedAnswers)
+    if (gradedResult) {
+      setScore(gradedResult.score)
+      setCorrectAnswersCount(gradedResult.correctAnswers)
+      setReviewData(gradedResult.review || [])
+      if (!expired) fetchExplanations(gradedResult.review || [])
+    } else {
+      setScore(0)
+      setCorrectAnswersCount(0)
+      setReviewData([])
     }
 
     setScreen('results')
     setIsSubmitting(false)
   }
 
-  const fetchExplanations = async (processedAnswers) => {
-    if (!quiz?.questions) return
-
-    const wrongQuestions = processedAnswers
-      .filter(a => !a.isCorrect && a.selectedOption !== -1)
-      .map(a => {
-        const question = quiz.questions.find(
-          q => (q._id || q.id) === a.questionId || quiz.questions.indexOf(q).toString() === a.questionId
-        )
-        if (!question) return null
-        return {
-          questionId: a.questionId,
-          question: question.question,
-          options: question.options,
-          correctAnswer: question.correctAnswer,
-          studentAnswer: a.selectedOption
-        }
-      })
-      .filter(Boolean)
+  const fetchExplanations = async (review) => {
+    const wrongQuestions = review
+      .filter(r => !r.isCorrect && r.selectedOptionIndex !== -1)
+      .map(r => ({
+        questionId: r.questionId,
+        question: r.question,
+        options: r.options,
+        correctAnswer: r.correctAnswer,
+        studentAnswer: r.selectedOptionIndex
+      }))
 
     if (wrongQuestions.length === 0) return
 
@@ -227,7 +236,18 @@ export default function PlayPage() {
         body: JSON.stringify({ wrongQuestions })
       })
       const data = await res.json()
-      if (res.ok && data.explanations) setExplanations(data.explanations)
+
+      if (res.ok && Array.isArray(data.explanations)) {
+        // IMPORTANT: don't trust the questionId Gemini echoes back — LLMs
+        // often can't reproduce long random IDs exactly, which silently
+        // breaks the lookup later. Match by response position instead,
+        // and re-attach OUR OWN known questionId from wrongQuestions.
+        const mapped = data.explanations.map((ex, idx) => ({
+          questionId: wrongQuestions[idx]?.questionId,
+          explanation: ex.explanation || ex.answerExplanation || 'Explanation unavailable.'
+        }))
+        setExplanations(mapped)
+      }
     } catch (e) {
       console.error('Failed to fetch explanations:', e)
     }
@@ -237,8 +257,14 @@ export default function PlayPage() {
   const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
   const getScoreEmoji = (s) => s >= 80 ? '🏆' : s >= 60 ? '⭐' : s >= 40 ? '👍' : '📚'
   const getDifficultyColor = (d) => d === 'easy' ? '#6ee7b7' : d === 'hard' ? '#fca5a5' : '#fcd34d'
+  const getDifficultyTag = (d) =>
+    d === 'easy' ? quizStyles.metaTagGreen :
+    d === 'hard' ? quizStyles.metaTagRed :
+    quizStyles.metaTagAmber
 
-  // entry screen
+  // ────────────────────────────────────────────────────────
+  // ENTRY SCREEN — unchanged local styling
+  // ────────────────────────────────────────────────────────
   if (screen === 'entry') {
     return (
       <div className={styles.page}>
@@ -296,7 +322,7 @@ export default function PlayPage() {
                           <span>{q.questions?.length || 0} questions</span>
                           <span>•</span>
                           <span>{q.timerEnabled ? `⏰ ${q.timeLimit} min` : '∞ No timer'}</span>
-                          {q.passcode && <span>🔒 Passcode required</span>}
+                          {q.hasPasscode && <span>🔒 Passcode required</span>}
                         </div>
                       </div>
                     </div>
@@ -305,7 +331,7 @@ export default function PlayPage() {
               )}
             </div>
 
-            {selectedQuizId && quizzes.find(q => q._id === selectedQuizId)?.passcode && (
+            {selectedQuizId && quizzes.find(q => q._id === selectedQuizId)?.hasPasscode && (
               <div className={styles.formGroup}>
                 <label className={styles.label}>Passcode</label>
                 <input
@@ -324,15 +350,19 @@ export default function PlayPage() {
             <button
               className={styles.startBtn}
               onClick={handleStart}
-              disabled={quizzesLoading || quizzes.length === 0}>
-              Start Quiz →
+              disabled={quizzesLoading || quizzes.length === 0 || isCheckingPasscode}>
+              {isCheckingPasscode ? 'Checking passcode…' : 'Start Quiz →'}
             </button>
           </div>
         </div>
       </div>
     )
   }
-  // quiz screen
+
+  // ────────────────────────────────────────────────────────
+  // QUIZ SCREEN — now styled with quizStyles (student/page.module.css),
+  // same classes/structure as QuizTaking.js, for a guaranteed visual match
+  // ────────────────────────────────────────────────────────
   if (screen === 'quiz' && quiz) {
     const currentQuestion = quiz.questions[currentQuestionIndex]
     const questionId = currentQuestion._id || currentQuestion.id || currentQuestionIndex.toString()
@@ -340,173 +370,232 @@ export default function PlayPage() {
     const answeredCount = Object.keys(answers).length
 
     return (
-      <div className={styles.page}>
-        <div className={styles.quizWrapper}>
+      <div
+        className={quizStyles.container}
+        onCopy={(e) => e.preventDefault()}
+        onPaste={(e) => e.preventDefault()}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        {/* Nav */}
+        <div className={quizStyles.nav}>
+          <h1 className={quizStyles.navTitle}>{quiz.title}</h1>
+          <div className={quizStyles.navRight}>
+            {quiz.timerEnabled && timeLeft !== null && !timeExpired && (
+              <span className={timeLeft < 60 ? quizStyles.timerWarning : quizStyles.timerNormal}>
+                ⏰ {formatTime(timeLeft)}
+              </span>
+            )}
+            <span className={quizStyles.navUser}>{guestName}</span>
+            <button className={quizStyles.navBtnDanger} onClick={handleExit}>
+              Exit Quiz
+            </button>
+          </div>
+        </div>
 
-          <div className={styles.quizNav}>
-            <div className={styles.quizNavTitle}>{quiz.title}</div>
-            <div className={styles.quizNavRight}>
-              {quiz.timerEnabled && timeLeft !== null && !timeExpired && (
-                <span className={timeLeft < 60 ? styles.timerWarn : styles.timerNormal}>
-                  ⏰ {formatTime(timeLeft)}
-                </span>
-              )}
-              <span className={styles.guestTag}>{guestName}</span>
+        {/* Alerts */}
+        {quiz.timerEnabled && timeLeft !== null && timeLeft < 60 && !timeExpired && (
+          <div className={quizStyles.alertWarning}>⚠️ Less than a minute remaining!</div>
+        )}
+        {timeExpired && (
+          <div className={quizStyles.alertExpired}>⏰ Time expired! Submitting your quiz...</div>
+        )}
+
+        {/* Progress bar */}
+        <div className={quizStyles.progressBar}>
+          <div className={quizStyles.progressFill} style={{ width: `${progress}%` }} />
+        </div>
+
+        {/* Question dots */}
+        <div className={quizStyles.dotsNav}>
+          {quiz.questions.map((_, i) => {
+            const qid = quiz.questions[i]._id || quiz.questions[i].id || i.toString()
+            return (
+              <button
+                key={i}
+                className={`${quizStyles.dot} ${i === currentQuestionIndex ? quizStyles.dotCurrent : ''} ${answers[qid] !== undefined && i !== currentQuestionIndex ? quizStyles.dotAnswered : ''}`}
+                onClick={() => !isSubmitting && !timeExpired && setCurrentQuestionIndex(i)}>
+                {i + 1}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Question card */}
+        <div className={quizStyles.questionCard}>
+          <div className={quizStyles.questionMeta}>
+            <span className={quizStyles.questionNum}>
+              Question {currentQuestionIndex + 1} of {quiz.questions.length}
+            </span>
+            <div className={quizStyles.questionTags}>
+              <span className={`${quizStyles.metaTag} ${getDifficultyTag(quiz.difficulty)}`}>
+                {quiz.difficulty}
+              </span>
+              <span className={quizStyles.metaTag}>{quiz.category}</span>
             </div>
           </div>
 
-          {timeExpired && (
-            <div className={styles.alertExpired}>⏰ Time expired! Submitting your quiz...</div>
-          )}
+          <div className={quizStyles.questionText}>{currentQuestion.question}</div>
 
-          <div className={styles.progressBar}>
-            <div className={styles.progressFill} style={{ width: `${progress}%` }} />
-          </div>
-
-          <div className={styles.dotsRow}>
-            {quiz.questions.map((_, i) => {
-              const qid = quiz.questions[i]._id || quiz.questions[i].id || i.toString()
+          <div className={quizStyles.optionsList}>
+            {currentQuestion.options?.map((option, i) => {
+              const isSelected = answers[questionId] === i
               return (
-                <button
+                <div
                   key={i}
-                  className={`${styles.dot} ${i === currentQuestionIndex ? styles.dotActive : ''} ${answers[qid] !== undefined && i !== currentQuestionIndex ? styles.dotDone : ''}`}
-                  onClick={() => !isSubmitting && !timeExpired && setCurrentQuestionIndex(i)}>
-                  {i + 1}
-                </button>
+                  className={`${quizStyles.optionItem} ${isSelected ? quizStyles.optionSelected : ''} ${isSubmitting || timeExpired ? quizStyles.optionDisabled : ''}`}
+                  onClick={() => handleAnswer(questionId, i)}>
+                  <div className={`${quizStyles.optionRadio} ${isSelected ? quizStyles.optionRadioSelected : ''}`} />
+                  <span className={`${quizStyles.optionText} ${isSelected ? quizStyles.optionTextSelected : ''}`}>
+                    {option}
+                  </span>
+                </div>
               )
             })}
           </div>
+        </div>
 
-          <div className={styles.questionCard}>
-            <div className={styles.questionNum}>
-              Question {currentQuestionIndex + 1} of {quiz.questions.length}
-            </div>
-            <div className={styles.questionText}>{currentQuestion.question}</div>
-            <div className={styles.optionsList}>
-              {currentQuestion.options?.map((option, i) => {
-                const isSelected = answers[questionId] === i
-                return (
-                  <div
-                    key={i}
-                    className={`${styles.optionItem} ${isSelected ? styles.optionSelected : ''} ${isSubmitting || timeExpired ? styles.optionDisabled : ''}`}
-                    onClick={() => handleAnswer(questionId, i)}>
-                    <div className={`${styles.optionRadio} ${isSelected ? styles.optionRadioSelected : ''}`} />
-                    <span className={styles.optionText}>{option}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+        {/* Navigation buttons */}
+        <div className={quizStyles.quizNav}>
+          <button
+            className={quizStyles.btnNav}
+            onClick={() => setCurrentQuestionIndex(p => p - 1)}
+            disabled={currentQuestionIndex === 0 || isSubmitting || timeExpired}>
+            ← Previous
+          </button>
 
-          <div className={styles.navButtons}>
+          <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
+            {answeredCount}/{quiz.questions.length} answered
+          </span>
+
+          {currentQuestionIndex < quiz.questions.length - 1 ? (
             <button
-              className={styles.btnSecondary}
-              onClick={() => setCurrentQuestionIndex(p => p - 1)}
-              disabled={currentQuestionIndex === 0 || isSubmitting || timeExpired}>
-              ← Previous
+              className={quizStyles.btnNav}
+              onClick={() => setCurrentQuestionIndex(p => p + 1)}
+              disabled={isSubmitting || timeExpired}>
+              Next →
             </button>
-            <span className={styles.answeredCount}>
-              {answeredCount}/{quiz.questions.length} answered
-            </span>
-            {currentQuestionIndex < quiz.questions.length - 1 ? (
-              <button
-                className={styles.btnSecondary}
-                onClick={() => setCurrentQuestionIndex(p => p + 1)}
-                disabled={isSubmitting || timeExpired}>
-                Next →
-              </button>
-            ) : (
-              <button
-                className={styles.btnSubmit}
-                onClick={() => submitQuiz(quiz, answers, false)}
-                disabled={isSubmitting || timeExpired}>
-                {isSubmitting ? '⏳ Submitting...' : '✓ Submit Quiz'}
-              </button>
-            )}
-          </div>
-
+          ) : (
+            <button
+              className={quizStyles.btnSubmit}
+              onClick={() => submitQuiz(quiz, answers, false)}
+              disabled={isSubmitting || timeExpired}>
+              {isSubmitting ? '⏳ Submitting...' : '✓ Submit Quiz'}
+            </button>
+          )}
         </div>
       </div>
     )
   }
 
-  // results screen
+  // ────────────────────────────────────────────────────────
+  // RESULTS SCREEN — also styled with quizStyles, matching QuizResults.js,
+  // with AI explanations attached directly under each wrong answer
+  // ────────────────────────────────────────────────────────
   if (screen === 'results' && quiz) {
     return (
-      <div className={styles.page}>
-        <div className={styles.quizWrapper}>
+      <div className={quizStyles.container}>
 
-          <div className={styles.scoreCard}>
-            <div className={styles.scoreEmoji}>{timeExpired ? '⏰' : getScoreEmoji(score)}</div>
-            <div className={styles.scoreTitle}>
-              {timeExpired ? 'Time Expired!' : 'Quiz Completed!'}
+        {/* Nav */}
+        <div className={quizStyles.nav}>
+          <h1 className={quizStyles.navTitle}>Quiz Results</h1>
+          <div className={quizStyles.navRight}>
+            <span className={quizStyles.navUser}>{guestName}</span>
+          </div>
+        </div>
+
+        {/* Score card */}
+        <div className={quizStyles.scoreCard}>
+          <div className={quizStyles.scoreEmoji}>{timeExpired ? '⏰' : getScoreEmoji(score)}</div>
+          <div className={quizStyles.scoreTitle}>
+            {timeExpired ? 'Time Expired!' : 'Quiz Completed!'}
+          </div>
+          <div className={quizStyles.scoreQuiz}>{quiz.title}</div>
+          <div className={quizStyles.scoreBig}>{score}%</div>
+          <div className={quizStyles.scoreStats}>
+            <div className={quizStyles.scoreStat}>
+              <span className={quizStyles.scoreStatVal}>{correctAnswersCount}</span>
+              <span className={quizStyles.scoreStatLbl}>Correct</span>
             </div>
-            <div className={styles.scoreQuizTitle}>{quiz.title}</div>
-            <div className={styles.scoreBig}>{score}%</div>
-            <div className={styles.scoreStats}>
-              <div className={styles.scoreStat}>
-                <span className={styles.scoreStatVal}>{correctAnswersCount}</span>
-                <span className={styles.scoreStatLbl}>Correct</span>
-              </div>
-              <div className={styles.scoreStat}>
-                <span className={styles.scoreStatVal}>{quiz.questions.length - correctAnswersCount}</span>
-                <span className={styles.scoreStatLbl}>Wrong</span>
-              </div>
-              <div className={styles.scoreStat}>
-                <span className={styles.scoreStatVal}>{Math.floor(timeTaken / 60)}m {timeTaken % 60}s</span>
-                <span className={styles.scoreStatLbl}>Time</span>
-              </div>
+            <div className={quizStyles.scoreStat}>
+              <span className={quizStyles.scoreStatVal}>{quiz.questions.length - correctAnswersCount}</span>
+              <span className={quizStyles.scoreStatLbl}>Wrong</span>
             </div>
+            <div className={quizStyles.scoreStat}>
+              <span className={quizStyles.scoreStatVal}>{Math.floor(timeTaken / 60)}m {timeTaken % 60}s</span>
+              <span className={quizStyles.scoreStatLbl}>Time Taken</span>
+            </div>
+          </div>
+          <div className={quizStyles.scoreActions}>
             <button
-              className={styles.startBtn}
+              className={quizStyles.btnPrimary}
               onClick={() => { setScreen('entry'); setSelectedQuizId(''); setAnswers({}); setPasscode('') }}>
               Play Again
             </button>
           </div>
-
-          {!timeExpired && (
-            <>
-              <h3 className={styles.reviewTitle}>Review Answers</h3>
-              {quiz.questions.map((q, i) => {
-                const qid = q._id || q.id || i.toString()
-                const userAnswer = answers[qid]
-                const isCorrect = userAnswer !== undefined && userAnswer === q.correctAnswer
-                return (
-                  <div key={qid} className={styles.reviewCard}>
-                    <div className={styles.reviewQuestion}>Q{i + 1}: {q.question}</div>
-                    {q.options?.map((opt, j) => (
-                      <div key={j} className={`${styles.reviewOption} ${j === q.correctAnswer ? styles.reviewCorrect : j === userAnswer && !isCorrect ? styles.reviewWrong : styles.reviewNeutral}`}>
-                        {j === q.correctAnswer ? '✓' : j === userAnswer && !isCorrect ? '✗' : '○'} {opt}
-                        {j === q.correctAnswer && ' (Correct)'}
-                        {j === userAnswer && j !== q.correctAnswer && ' (Your answer)'}
-                      </div>
-                    ))}
-                    {userAnswer === undefined && (
-                      <div className={styles.reviewUnanswered}>⚠️ Not answered</div>
-                    )}
-                  </div>
-                )
-              })}
-
-              <div className={styles.explanationSection}>
-                <h3 className={styles.reviewTitle}>AI Explanations</h3>
-                {isFetchingExplanations && (
-                  <div className={styles.loadingText}>Generating explanations for wrong answers…</div>
-                )}
-                {(!isFetchingExplanations && explanations.length === 0) && (
-                  <div className={styles.emptyState}>No wrong-answer explanations are available yet.</div>
-                )}
-                {explanations.length > 0 && explanations.map((ex, idx) => (
-                  <div key={idx} className={styles.explanationCard}>
-                    <div className={styles.reviewQuestion}>Question {idx + 1}</div>
-                    <div className={styles.explanationText}>{ex.explanation || ex.answerExplanation || 'Explanation unavailable.'}</div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
         </div>
+
+        {/* Review answers */}
+        {!timeExpired && (
+          <>
+            <div className={quizStyles.reviewTitle}>Review Answers</div>
+
+            {isFetchingExplanations && (
+              <div className={quizStyles.alertWarning} style={{ textAlign: 'center', marginBottom: 16 }}>
+                ✨ Please wait, we are generating explanations for your wrong answers...
+              </div>
+            )}
+
+            {reviewData.map((r, i) => {
+              const explanationObj = explanations.find(e => e.questionId === r.questionId)
+              return (
+                <div key={r.questionId} className={quizStyles.reviewCard}>
+                  <div className={quizStyles.reviewQuestion}>Q{i + 1}: {r.question}</div>
+
+                  {r.options?.map((opt, j) => (
+                    <div
+                      key={j}
+                      className={`${quizStyles.reviewOption} ${
+                        j === r.correctAnswer ? quizStyles.reviewCorrect :
+                        j === r.selectedOptionIndex && !r.isCorrect ? quizStyles.reviewWrong :
+                        quizStyles.reviewNeutral
+                      }`}>
+                      {j === r.correctAnswer ? '✓' :
+                       j === r.selectedOptionIndex && !r.isCorrect ? '✗' : '○'} {opt}
+                      {j === r.correctAnswer && ' (Correct)'}
+                      {j === r.selectedOptionIndex && j !== r.correctAnswer && ' (Your answer)'}
+                    </div>
+                  ))}
+
+                  {r.selectedOptionIndex === -1 && (
+                    <div className={quizStyles.reviewUnanswered}>⚠️ Not answered</div>
+                  )}
+
+                  {/* AI explanation — only on wrong answers */}
+                  {!r.isCorrect && r.selectedOptionIndex !== -1 && (
+                    <div className={quizStyles.aiExplanation}>
+                      <span className={quizStyles.aiExplanationLabel}>✨ Explanation</span>
+                      {explanationObj ? (
+                        <p className={quizStyles.aiExplanationText}>
+                          {explanationObj.explanation}
+                        </p>
+                      ) : isFetchingExplanations ? (
+                        <p className={quizStyles.aiExplanationText} style={{ opacity: 0.5 }}>
+                          Loading...
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </>
+        )}
+
+        {timeExpired && (
+          <div className={quizStyles.alertExpired}>
+            ⏰ Time ran out — here's how you did on the questions you answered.
+          </div>
+        )}
       </div>
     )
   }

@@ -397,6 +397,40 @@
   cursor: not-allowed;
 }
 
+.optionRadio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(139,92,246,.4);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .18s ease;
+  background: transparent;
+}
+
+.optionRadioSelected {
+  border-color: #8b5cf6;
+  background: #7c3aed;
+}
+
+.optionRadioSelected::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.optionText {
+  font-size: 15px;
+  color: #cbd5e1;
+  font-weight: 500;
+  line-height: 1.5;
+  flex: 1;
+}
+
 .navButtons {
   display: flex;
   flex-wrap: wrap;
@@ -528,27 +562,42 @@
   font-weight: 700;
 }
 
-.explanationSection {
-  margin: 0 28px 24px;
-  padding: 20px;
-  border-radius: 22px;
-  background: rgba(255,255,255,.03);
-  border: 1px solid rgba(139,92,246,.15);
-}
-
-.explanationCard {
+/* AI explanation — shown inline under each wrong answer, right where it's relevant */
+.aiExplanation {
   margin-top: 14px;
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(15,23,42,.85);
-  border: 1px solid rgba(148,163,184,.12);
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: rgba(139,92,246,.08);
+  border: 1.5px solid rgba(139,92,246,.2);
 }
 
-.explanationText {
+.aiExplanationLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: #a78bfa;
+  margin-bottom: 6px;
+}
+
+.aiExplanationText {
   margin: 0;
   color: #e2e8f0;
   line-height: 1.7;
-  font-size: 15px;
+  font-size: 14px;
+}
+
+.explanationLoadingBanner {
+  margin: 0 28px 16px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(245,158,11,.1);
+  border: 1.5px solid rgba(245,158,11,.3);
+  color: #fcd34d;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
 }
 
 @media (max-width: 620px) {

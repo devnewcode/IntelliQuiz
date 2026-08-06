@@ -1,8 +1,10 @@
+
 import { NextResponse } from 'next/server'
 import dbConnect from '../../../lib/mongodb'
 import Result from '../../../lib/models/Result'
-import { verifyToken } from '../../../lib/auth'
 import Quiz from '@/lib/models/Quiz'
+import { verifyToken } from '../../../lib/auth'
+
 export async function GET(request) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -27,22 +29,17 @@ export async function GET(request) {
 
     let results
     if (decoded.role === 'superadmin') {
-      // superadmin sees all results
       results = await Result.find({})
         .populate('quiz', 'title')
         .populate('user', 'name username email')
         .sort({ completedAt: -1 })
     } else if (decoded.role === 'admin') {
-
-      // admin sees only results from their own quizzes
       const adminQuizIds = await Quiz.find({ createdBy: decoded.id }).distinct('_id')
       results = await Result.find({ quiz: { $in: adminQuizIds } })
         .populate('quiz', 'title')
         .populate('user', 'name username email')
         .sort({ completedAt: -1 })
-    }
-    else {
-      // here the student will see only their own results ──
+    } else {
       results = await Result.find({ user: decoded.id })
         .populate('quiz', 'title')
         .sort({ completedAt: -1 })
@@ -60,77 +57,89 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-
-    // old code requires auth always
-    // const authHeader = request.headers.get('authorization')
-    // if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    //   return NextResponse.json(
-    //     { message: 'Authentication required' },
-    //     { status: 401 }
-    //   )
-    // }
-    // const token = authHeader.split(' ')[1]
-    // const decoded = verifyToken(token)
-    // if (!decoded) {
-    //   return NextResponse.json(
-    //     { message: 'Invalid token' },
-    //     { status: 401 }
-    //   )
-    // }
-
-
-    //new code allows both authenticated and guest submissions
     const authHeader = request.headers.get('authorization')
     const token = authHeader?.split(' ')[1]
     const decoded = token ? verifyToken(token) : null
-    const body = await request.json()
-    const { quizId, answers, score, totalQuestions, correctAnswers, timeTaken, guestName, guestEmail } = body
 
-    // Must have either a logged in user OR guest name+email
+    const body = await request.json()
+    const { quizId, answers, timeTaken, guestName, guestEmail } = body
+
     if (!decoded && (!guestName || !guestEmail)) {
       return NextResponse.json({ message: 'Login or provide name and email to submit' }, { status: 401 })
     }
 
-
-
-
+    if (!quizId || !Array.isArray(answers)) {
+      return NextResponse.json({ message: 'Missing quiz or answers data' }, { status: 400 })
+    }
 
     await dbConnect()
 
-    // const { quizId, answers, score, totalQuestions, correctAnswers, timeTaken } = await request.json()
+    // Fetch the REAL quiz (with correctAnswer) — this never leaves the server.
+    const quiz = await Quiz.findOne({ _id: quizId, isActive: true })
+    if (!quiz) {
+      return NextResponse.json({ message: 'Quiz not found' }, { status: 404 })
+    }
 
+    const submittedByQuestionId = new Map(
+      answers.map((a) => [String(a.questionId), a.selectedOptionText])
+    )
 
-    //old code
-    // const result = await Result.create({
-    //   quiz: quizId,
-    //   user: decoded.id,
-    //   answers,
-    //   score,
-    //   totalQuestions,
-    //   correctAnswers,
-    //   timeTaken
-    // })
+    let correctCount = 0
 
+    
+    const review = quiz.questions.map((q) => {
+      const questionId = String(q._id)
+      const selectedOptionText = submittedByQuestionId.get(questionId) ?? null
+      const correctOptionText = q.options[q.correctAnswer]
+      const selectedOptionIndex =
+        selectedOptionText != null ? q.options.findIndex((opt) => opt === selectedOptionText) : -1
+      const isCorrect = selectedOptionText != null && selectedOptionText === correctOptionText
 
-    //updated for guest also
-    const result = await Result.create({
-      quiz: quizId,
-      user: decoded?.id || null,
-      answers, score, totalQuestions, correctAnswers, timeTaken,
-      guestName: guestName || '',
-      guestEmail: guestEmail || ''
+      if (isCorrect) correctCount++
+
+      return {
+        questionId,
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        correctAnswerText: correctOptionText,
+        selectedOptionText,
+        selectedOptionIndex,
+        isCorrect,
+      }
     })
 
-    const populatedResult = await Result.findById(result._id)
-      .populate('quiz', 'title')
-      .populate('user', 'name username')
+    const totalQuestions = quiz.questions.length
+    const score = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0
+
+    const resultDoc = await Result.create({
+      quiz: quizId,
+      user: decoded?.id || null,
+      answers: review.map((r) => ({
+        questionId: r.questionId,
+        selectedOption: r.selectedOptionIndex,
+        isCorrect: r.isCorrect,
+      })),
+      score,
+      totalQuestions,
+      correctAnswers: correctCount,
+      timeTaken: timeTaken || 0,
+      guestName: guestName || '',
+      guestEmail: guestEmail || '',
+    })
 
     return NextResponse.json({
       success: true,
       message: 'Result saved successfully!',
-      result: populatedResult
+      result: {
+        id: resultDoc._id,
+        score,
+        correctAnswers: correctCount,
+        totalQuestions,
+        timeTaken: timeTaken || 0,
+        review,
+      },
     })
-
   } catch (error) {
     console.error('Save result error:', error)
     return NextResponse.json(
