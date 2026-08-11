@@ -89,15 +89,19 @@ export default function Student() {
     try {
       const token = localStorage.getItem('token')
       const timeTaken = startTime ? Math.floor((new Date() - startTime) / 1000) : 0
+      // The server now grades everything itself (it re-checks each answer
+      // against the real quiz in the database) — it only needs to know
+      // WHAT was picked (as text), not a pre-computed score or index.
+      const answersForServer = result.processedAnswers.map(a => ({
+        questionId: a.questionId,
+        selectedOptionText: a.selectedOptionText
+      }))
       await fetch('/api/results', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
           quizId: selectedQuiz._id,
-          answers: result.processedAnswers,
-          score: result.finalScore,
-          totalQuestions: selectedQuiz.questions.length,
-          correctAnswers: result.correctAnswers,
+          answers: answersForServer,
           timeTaken,
           timeExpired: expired
         })
@@ -141,9 +145,7 @@ export default function Student() {
     setIsFetchingExplanations(false)
   }
 
-  // ─────────────────────────────────────────
-  // Quiz logic
-  // ─────────────────────────────────────────
+  //quiz logic
 
   const shuffleArray = (arr) => [...arr].sort(() => Math.random() - 0.5)
 
@@ -202,7 +204,9 @@ export default function Student() {
       const userAnswer = answers[questionId]
       const isCorrect = userAnswer !== undefined && userAnswer === q.correctAnswer
       if (isCorrect) correctAnswers++
-      return { questionId, selectedOption: userAnswer ?? -1, isCorrect }
+      // selectedOptionText is what the server now uses to grade — see saveResult()
+      const selectedOptionText = userAnswer !== undefined ? q.options[userAnswer] : null
+      return { questionId, selectedOption: userAnswer ?? -1, selectedOptionText, isCorrect }
     })
     const finalScore = Math.round((correctAnswers / selectedQuiz.questions.length) * 100)
     return { correctAnswers, finalScore, processedAnswers }
@@ -257,9 +261,7 @@ export default function Student() {
     setExplanations([])
   }
 
-  // ─────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────
+//render
 
   if (loading) return (
     <div className={styles.container}>
