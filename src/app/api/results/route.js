@@ -1,9 +1,14 @@
+// FILE LOCATION: src/app/api/results/route.js
+// (replaces your existing file — GET handler is UNCHANGED. POST now uses
+// the shared, tested gradeQuiz() function instead of repeating the same
+// logic inline.)
 
 import { NextResponse } from 'next/server'
 import dbConnect from '../../../lib/mongodb'
 import Result from '../../../lib/models/Result'
 import Quiz from '@/lib/models/Quiz'
 import { verifyToken } from '../../../lib/auth'
+import { gradeQuiz } from '../../../lib/scoring'
 
 export async function GET(request) {
   try {
@@ -80,37 +85,8 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Quiz not found' }, { status: 404 })
     }
 
-    const submittedByQuestionId = new Map(
-      answers.map((a) => [String(a.questionId), a.selectedOptionText])
-    )
-
-    let correctCount = 0
-
-    
-    const review = quiz.questions.map((q) => {
-      const questionId = String(q._id)
-      const selectedOptionText = submittedByQuestionId.get(questionId) ?? null
-      const correctOptionText = q.options[q.correctAnswer]
-      const selectedOptionIndex =
-        selectedOptionText != null ? q.options.findIndex((opt) => opt === selectedOptionText) : -1
-      const isCorrect = selectedOptionText != null && selectedOptionText === correctOptionText
-
-      if (isCorrect) correctCount++
-
-      return {
-        questionId,
-        question: q.question,
-        options: q.options,
-        correctAnswer: q.correctAnswer,
-        correctAnswerText: correctOptionText,
-        selectedOptionText,
-        selectedOptionIndex,
-        isCorrect,
-      }
-    })
-
-    const totalQuestions = quiz.questions.length
-    const score = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0
+    // All the actual grading logic now lives in one tested place: scoring.js
+    const { score, correctCount, totalQuestions, review } = gradeQuiz(quiz.questions, answers)
 
     const resultDoc = await Result.create({
       quiz: quizId,
