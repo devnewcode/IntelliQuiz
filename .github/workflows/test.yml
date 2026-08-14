@@ -1,6 +1,3 @@
-# FILE LOCATION (new file): .github/workflows/test.yml
-# This exact folder path matters — GitHub only recognizes workflow files
-# inside .github/workflows/.
 
 name: Run Tests
 
