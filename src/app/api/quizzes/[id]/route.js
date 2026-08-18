@@ -16,7 +16,7 @@ export async function DELETE(request, { params }) {
     const token = authHeader.split(' ')[1]
     const decoded = verifyToken(token)
     
-    if (!decoded || decoded.role !== 'admin') {
+    if (!decoded || decoded.role !== 'admin' && decoded.role !== 'superadmin') {
       return NextResponse.json(
         { message: 'Admin access required' },
         { status: 403 }

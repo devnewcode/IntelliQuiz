@@ -13,9 +13,11 @@
     "@google/generative-ai": "^0.24.1",
     "bcryptjs": "^3.0.2",
     "jsonwebtoken": "^9.0.2",
+    "mammoth": "^1.12.1",
     "mongodb": "^6.20.0",
     "mongoose": "^8.18.1",
     "next": "^15.5.7",
+    "pdfjs-dist": "^6.2.108",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "zod": "^4.4.3"
@@ -25,6 +27,6 @@
     "eslint": "^9",
     "eslint-config-next": "^15.5.7",
     "jest": "^30.4.2",
-    "typescript": "^5.7.0" 
+    "typescript": "^5.7.0"
   }
 }
