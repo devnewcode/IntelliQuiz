@@ -1,13 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: [
-    'jsonwebtoken',
-    'bcryptjs',
-    'mongoose',
-    'pdfjs-dist',
-    '@napi-rs/canvas',
-    'pdf-parse',
-  ],
+  experimental: {
+    serverComponentsExternalPackages: ['jsonwebtoken', 'bcryptjs', 'mongoose', 'pdf-parse']
+  }
 }
 
-export default nextConfig
+export default nextConfig;
