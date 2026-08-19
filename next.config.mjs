@@ -6,6 +6,7 @@ const nextConfig = {
     'mongoose',
     'pdfjs-dist',
     '@napi-rs/canvas',
+    'pdf-parse',
   ],
 }
 
