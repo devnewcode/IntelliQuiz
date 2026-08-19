@@ -9,7 +9,7 @@ An AI-powered quiz platform built with Next.js, MongoDB, and the Gemini API. Adm
 ## Features
 
 - **Role-based accounts** — student, admin, and superadmin roles with JWT authentication
-- **AI quiz generation** — admins generate quizzes from a topic/prompt using the Gemini API, with schema validation and automatic retry if the AI's output is malformed
+- **AI quiz generation** — admins generate quizzes from a topic/prompt using the Gemini API, or can upload documents, with schema validation and automatic retry if the AI's output is malformed
 - **Guest play mode** — anyone can play public quizzes without signing up, with optional passcode protection
 - **Timed quizzes** — configurable time limits, auto-submit on expiry, question navigation
 - **AI-generated explanations** — after submitting, wrong answers get a personalized explanation generated on the fly
