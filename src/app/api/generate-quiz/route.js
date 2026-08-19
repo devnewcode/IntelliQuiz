@@ -2,23 +2,19 @@ import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { z } from 'zod'
 import { retrieveRelevantChunks } from '../../../lib/rag/retrieve'
-import { deleteSourceDocument } from '../../../lib/rag/cleanup'
+import SourceDocument from '../../../lib/models/SourceDocument'
+import dbConnect from '../../../lib/mongodb'
 
-// Setup
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
-// Validation schema
 const QuestionSchema = z.object({
   question: z.string().min(1, 'Question text is required'),
   options: z.array(z.string().min(1)).length(4, 'Must have exactly 4 options'),
   correctAnswer: z.number().int().min(0).max(3),
 })
 
-const QuestionsArraySchema = z
-  .array(QuestionSchema)
-  .min(1, 'At least one question is required')
+const QuestionsArraySchema = z.array(QuestionSchema).min(1, 'At least one question is required')
 
-// Rate limiter
 const RATE_LIMIT_MAX_REQUESTS = 5
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 
@@ -28,9 +24,7 @@ function isRateLimited(ip) {
   const now = Date.now()
   const timestamps = requestLog.get(ip) || []
 
-  const recent = timestamps.filter(
-    (t) => now - t < RATE_LIMIT_WINDOW_MS
-  )
+  const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS)
 
   if (recent.length >= RATE_LIMIT_MAX_REQUESTS) {
     requestLog.set(ip, recent)
@@ -47,14 +41,13 @@ function getClientIp(request) {
   return forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
 }
 
-// Generate and validate Gemini response
+// Parses Gemini's response and checks it against the question schema.
 async function generateAndValidate(model, promptText) {
   const result = await model.generateContent(promptText)
   const rawText = result.response.text()
   const cleaned = rawText.replace(/```json|```/g, '').trim()
 
   let parsedJson
-
   try {
     parsedJson = JSON.parse(cleaned)
   } catch {
@@ -62,7 +55,6 @@ async function generateAndValidate(model, promptText) {
   }
 
   const validation = QuestionsArraySchema.safeParse(parsedJson)
-
   if (!validation.success) {
     return {
       success: false,
@@ -75,12 +67,10 @@ async function generateAndValidate(model, promptText) {
   return { success: true, questions: validation.data }
 }
 
-// Route handler
 export async function POST(request) {
   try {
-    // Rate limit
+    // Limit repeated requests from the same IP.
     const ip = getClientIp(request)
-
     if (isRateLimited(ip)) {
       return NextResponse.json(
         { message: 'Too many requests. Please wait a minute and try again.' },
@@ -88,32 +78,31 @@ export async function POST(request) {
       )
     }
 
-    const { topic, difficulty, count, prompt, sourceDocumentId } =
-      await request.json()
+    const { topic, difficulty, count, prompt, sourceDocumentId } = await request.json()
 
-    // RAG context
     let documentContext = ''
+    let retrievedCount = 0
+    let chunkCountForStats = 0
 
+    // RAG: retrieve only the most relevant chunks from the selected document.
     if (sourceDocumentId) {
-      const retrievalQuery =
-        topic || prompt || 'key concepts and facts in this document'
+      if (!prompt || !prompt.trim()) {
+        return NextResponse.json(
+          { message: 'Please describe what questions you want from this document.' },
+          { status: 400 }
+        )
+      }
 
-      const relevantChunks = await retrieveRelevantChunks(
-        retrievalQuery,
-        sourceDocumentId,
-        8
-      )
+      await dbConnect()
+      const sourceDoc = await SourceDocument.findById(sourceDocumentId)
+      chunkCountForStats = sourceDoc?.chunkCount || 0
+
+      const relevantChunks = await retrieveRelevantChunks(prompt, sourceDocumentId, 8)
+      retrievedCount = relevantChunks.length
 
       if (relevantChunks.length === 0) {
-        deleteSourceDocument(sourceDocumentId).catch((err) =>
-          console.error('Failed to clean up source document chunks:', err)
-        )
-
         return NextResponse.json(
-          {
-            message:
-              'No relevant content found in this document. Try a different topic or upload another document.',
-          },
+          { message: 'No relevant content found in this document. Try a different request.' },
           { status: 404 }
         )
       }
@@ -122,17 +111,14 @@ export async function POST(request) {
     }
 
     const fullPrompt = documentContext
-      ? `Using ONLY the following source material, generate EXACTLY ${count} multiple choice quiz questions${topic ? ` about "${topic}"` : ''} with ${difficulty} difficulty.
+      ? `${prompt}
+
+Use ONLY the following source material to generate the questions -- do not use outside knowledge.
 
 SOURCE MATERIAL:
 """
 ${documentContext}
 """
-
-IMPORTANT:
-- Base every question strictly on the source material above. Do not use outside knowledge.
-- You MUST return EXACTLY ${count} questions -- no more, no less.
-- If the source material doesn't contain enough distinct information for ${count} questions, cover the material as thoroughly as possible without repeating questions.
 
 Return ONLY a valid JSON array, no extra text, no markdown, no explanation.
 Format:
@@ -149,7 +135,7 @@ Rules:
 - Each question must have exactly 4 options
 - Questions should be clear and educational`
       : prompt
-        ? `${prompt}
+      ? `${prompt}
 
 IMPORTANT: Follow the exact number of questions mentioned in the prompt above.
 
@@ -167,7 +153,7 @@ Rules:
 - correctAnswer is the index (0, 1, 2, or 3) of the correct option
 - Each question must have exactly 4 options
 - Questions should be clear and educational`
-        : `Generate EXACTLY ${count} multiple choice quiz questions about "${topic}" with ${difficulty} difficulty.
+      : `Generate EXACTLY ${count} multiple choice quiz questions about "${topic}" with ${difficulty} difficulty.
 
 IMPORTANT: You MUST return EXACTLY ${count} questions — no more, no less. Count them before responding.
 
@@ -187,19 +173,13 @@ Rules:
 - Questions should be clear and educational
 - Difficulty: ${difficulty}`
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash-lite',
-    })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })
 
-    // First attempt
     let attempt = await generateAndValidate(model, fullPrompt)
 
-    // Retry with a repair prompt if validation fails
+    // Retry once if Gemini returns invalid JSON or the wrong structure.
     if (!attempt.success) {
-      console.warn(
-        'First Gemini response invalid, retrying with repair prompt:',
-        attempt.error
-      )
+      console.warn('First Gemini response invalid, retrying with repair prompt:', attempt.error)
 
       const repairPrompt = `Your previous response was not valid. Here is what you returned:
 
@@ -219,17 +199,8 @@ Return ONLY the corrected JSON array. No markdown, no explanation, no extra text
       attempt = await generateAndValidate(model, repairPrompt)
     }
 
-    // Clean up temporary document chunks
-    if (sourceDocumentId) {
-      deleteSourceDocument(sourceDocumentId).catch((err) =>
-        console.error('Failed to clean up source document chunks:', err)
-      )
-    }
-
-    // Return error if both attempts failed
     if (!attempt.success) {
       console.error('Gemini output failed validation after retry:', attempt)
-
       return NextResponse.json(
         {
           message:
@@ -244,10 +215,12 @@ Return ONLY the corrected JSON array. No markdown, no explanation, no extra text
     return NextResponse.json({
       success: true,
       questions: attempt.questions,
+      rag: sourceDocumentId
+        ? { totalChunks: chunkCountForStats, retrievedChunks: retrievedCount }
+        : null
     })
   } catch (error) {
     console.error('Gemini API error:', error)
-
     return NextResponse.json(
       { message: 'Failed to generate questions. Please try again.' },
       { status: 500 }
