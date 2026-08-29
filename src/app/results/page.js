@@ -53,21 +53,32 @@ export default function Results() {
 
   const exportToCSV = () => {
     const headers = [
-      'Student Name', 'Email', 'Quiz Title',
+      'Student / Participant Name', 'Email', 'Role / Type', 'Quiz Title',
       'Score (%)', 'Correct', 'Total Questions', 'Time Taken', 'Date'
     ]
-    const rows = results.map(r => [
-      r.user?.name || 'Unknown',
-      r.user?.email || 'Unknown',
-      r.quiz?.title || 'Unknown Quiz',
-      r.score,
-      r.correctAnswers,
-      r.totalQuestions,
-      r.timeTaken > 0 ? `${Math.floor(r.timeTaken / 60)}m ${r.timeTaken % 60}s` : '—',
-      new Date(r.completedAt).toLocaleDateString() + ' ' +
+    const rows = results.map(r => {
+      const name = r.user?.name || r.guestName || (user?.role === 'student' ? user?.name : 'Guest Participant')
+      const email = r.user?.email || r.guestEmail || (user?.role === 'student' ? user?.email : 'N/A')
+      const participantType = r.user ? (r.user.role || 'Student') : (r.guestName ? 'Guest' : 'Student')
+      const quizTitle = r.quiz?.title || 'Unknown Quiz'
+      const timeStr = r.timeTaken > 0 ? `${Math.floor(r.timeTaken / 60)}m ${r.timeTaken % 60}s` : '-'
+      const dateStr = new Date(r.completedAt).toLocaleDateString() + ' ' +
         new Date(r.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    ])
-    const csvContent = [headers, ...rows]
+
+      return [
+        name,
+        email,
+        participantType,
+        quizTitle,
+        r.score,
+        r.correctAnswers,
+        r.totalQuestions,
+        timeStr,
+        dateStr
+      ]
+    })
+    // Prepend \uFEFF (UTF-8 BOM) so Microsoft Excel opens it with correct UTF-8 encoding
+    const csvContent = '\uFEFF' + [headers, ...rows]
       .map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
       .join('\n')
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -98,13 +109,16 @@ export default function Results() {
 
   return (
     <div className={styles.container}>
-
-      {/* ── Nav ── */}
       <div className={styles.nav}>
-        <h1>
-          <span className={styles.pageIcon}>📊</span>
-          {isAdminRole(user.role) ? 'All Quiz Results' : 'My Quiz Results'}
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '24px' }}>🎓</span>
+          <div>
+            <h1 className={styles.headerTitle} style={{ fontSize: '18px', margin: 0 }}>IntelliQuiz</h1>
+            <span style={{ fontSize: '11.5px', color: 'var(--primary-300)', fontWeight: 600 }}>
+              {isAdminRole(user.role) ? 'All Results & Analytics' : 'My Quiz Results'}
+            </span>
+          </div>
+        </div>
         <div className={styles.userInfo}>
           <span className={styles.userName}>{user.name}</span>
           <button onClick={() => router.push('/')} className={styles.navBtn}>Home</button>
@@ -126,7 +140,6 @@ export default function Results() {
         </div>
       </div>
 
-      {/* ── Views ── */}
       <div className={styles.resultsWrapper}>
         {isAdminRole(user.role) ? (
           <AdminResults

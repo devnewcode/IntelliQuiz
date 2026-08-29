@@ -63,7 +63,6 @@ export default function AdminResults({ results, getScoreColor, getScoreEmoji }) 
 
   return (
     <>
-      {/* Stats grid */}
       {studentList.length > 0 && (
         <div className={styles.statsGrid}>
           <div className={styles.statCard}>
@@ -91,7 +90,6 @@ export default function AdminResults({ results, getScoreColor, getScoreEmoji }) 
         </div>
       )}
 
-      {/* Filter bar */}
       {studentList.length > 0 && (
         <div className={styles.filterSection}>
           <div className={styles.filterLabel}>Filter by Avg Score:</div>
@@ -113,7 +111,6 @@ export default function AdminResults({ results, getScoreColor, getScoreEmoji }) 
         </div>
       )}
 
-      {/* Student / Guest cards */}
       {filteredStudents.length === 0 ? (
         <div className={styles.emptyState}>
           <div className={styles.emptyIcon}>📋</div>
@@ -129,12 +126,10 @@ export default function AdminResults({ results, getScoreColor, getScoreEmoji }) 
                 key={u._id || u.email}
                 className={`${styles.studentCard} ${isOpen ? styles.studentCardOpen : ''}`}>
 
-                {/* Summary row — clickable to expand */}
                 <div
                   className={styles.studentRow}
                   onClick={() => setExpandedStudent(isOpen ? null : (u._id || u.email))}>
 
-                  {/* Avatar — orange for guests, purple for students */}
                   <div
                     className={styles.studentAvatar}
                     style={isGuest ? { background: 'linear-gradient(135deg,#d97706,#f59e0b)' } : {}}>
@@ -144,7 +139,6 @@ export default function AdminResults({ results, getScoreColor, getScoreEmoji }) 
                   <div className={styles.studentMeta}>
                     <div className={styles.studentName}>
                       {u.name}
-                      {/* Guest badge */}
                       {isGuest && (
                         <span style={{
                           marginLeft: 8, fontSize: 11,
@@ -181,7 +175,6 @@ export default function AdminResults({ results, getScoreColor, getScoreEmoji }) 
                   <div className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ''}`}>▾</div>
                 </div>
 
-                {/* Expanded attempts panel */}
                 {isOpen && (
                   <div className={styles.attemptsPanel}>
                     <div className={styles.attemptsPanelTitle}>

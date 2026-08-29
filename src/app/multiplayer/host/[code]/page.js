@@ -20,36 +20,35 @@ export default function HostRoomPage() {
   const [room, setRoom] = useState(null);
   const [quizzes, setQuizzes] = useState([]);
   const [selectedQuizId, setSelectedQuizId] = useState("");
+  const [copiedCode, setCopiedCode] = useState(false);
 
   const [question, setQuestion] = useState(null);
-  const [lastQuestionFull, setLastQuestionFull] = useState(null); // kept just for the correct-answer text
-  const [lastQuestionMeta, setLastQuestionMeta] = useState(null); // { index, total } of the last question shown
+  const [lastQuestionFull, setLastQuestionFull] = useState(null);
+  const [lastQuestionMeta, setLastQuestionMeta] = useState(null);
   const [answerCount, setAnswerCount] = useState({ answeredCount: 0, totalPlayers: 0 });
   const [questionResult, setQuestionResult] = useState(null);
   const [finalLeaderboard, setFinalLeaderboard] = useState(null);
   const [finishReason, setFinishReason] = useState(null);
-  const [secondsLeft, setSecondsLeft] = useState(null); // countdown for the current question
+  const [secondsLeft, setSecondsLeft] = useState(null);
   const [roomClosed, setRoomClosed] = useState(false);
 
   useEffect(() => {
     const socket = getSocket();
     const hostId = sessionStorage.getItem(`mp_host_${code}`);
 
-    // reattaches this browser as the host after a refresh or dropped connection
     function attemptRejoin() {
       if (!hostId) {
-        setRoomClosed(true); // no saved session at all - can't be this room's host
+        setRoomClosed(true);
         return;
       }
       socket.emit("host:rejoin-room", { roomCode: code, hostId }, (res) => {
         if (res.ok) setRoom(res.room);
-        else setRoomClosed(true); // e.g. room already expired while we were away
+        else setRoomClosed(true);
       });
     }
     attemptRejoin();
     socket.on("connect", attemptRejoin);
 
-    // pull the host's existing quizzes to pick one to run
     fetch("/api/quizzes")
       .then((res) => res.json())
       .then((data) => setQuizzes(Array.isArray(data) ? data : data.quizzes || []))
@@ -92,10 +91,8 @@ export default function HostRoomPage() {
       socket.off("quiz:finished", onFinished);
       socket.off("room:closed", onRoomClosed);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
+  }, [code, room?.players?.length]);
 
-  // ticks the on-screen countdown down every second for the current question
   useEffect(() => {
     if (!question) return;
     setSecondsLeft(question.timeLimitSec);
@@ -107,8 +104,12 @@ export default function HostRoomPage() {
     return () => clearInterval(interval);
   }, [question]);
 
-  // tells the server which quiz to run - the server looks up the real
-  // questions itself instead of trusting them from the browser
+  const copyRoomCode = () => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2500);
+  };
+
   function handleStartQuiz() {
     const socket = getSocket();
     if (!selectedQuizId) return;
@@ -170,43 +171,69 @@ export default function HostRoomPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.card}>
-        <h1 className={styles.title}>Room</h1>
-        <div className={styles.roomCode}>{code}</div>
+      <div className={styles.card} style={{ maxWidth: '580px' }}>
+
+        <div className={styles.roomHeaderRow}>
+          <div>
+            <h1 className={styles.title} style={{ margin: '0 0 4px' }}>Host Control Room</h1>
+            <p className={styles.subtitle} style={{ margin: 0 }}>Share this room code with players:</p>
+          </div>
+          <button
+            type="button"
+            className={styles.copyCodeBtn}
+            onClick={copyRoomCode}
+            title="Click to copy room code">
+            <span className={styles.roomCodeSmall}>{code}</span>
+            <span className={styles.copyIcon}>{copiedCode ? "✓ Copied!" : "📋 Copy"}</span>
+          </button>
+        </div>
 
         {showLobby && (
           <>
-            <p className={styles.sectionLabel}>
-              Players ({room?.players?.length || 0}{room?.maxPlayers ? ` / ${room.maxPlayers}` : ""})
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 10px' }}>
+              <p className={styles.sectionLabel} style={{ margin: 0 }}>
+                👥 Connected Players ({room?.players?.length || 0}{room?.maxPlayers ? ` / ${room.maxPlayers}` : ""})
+              </p>
+              {room?.players?.length > 0 && (
+                <span style={{ fontSize: '12px', color: '#34d399', fontWeight: 700 }}>● Ready</span>
+              )}
+            </div>
+
             <ul className={styles.list}>
-              {room?.players?.length
-                ? room.players.map((p, i) => (
-                    <li key={p.id} className={styles.playerRow}>
-                      <span className={styles.playerRowLeft}>
-                        <span className={`${styles.avatar} ${getAvatarClass(i)}`}>{getInitial(p.name)}</span>
-                        <span className={styles.playerName}>
-                          {p.name}
-                          {!p.connected && <span className={styles.incorrectText}> (reconnecting...)</span>}
-                        </span>
+              {room?.players?.length ? (
+                room.players.map((p, i) => (
+                  <li key={p.id} className={styles.playerRow}>
+                    <span className={styles.playerRowLeft}>
+                      <span className={`${styles.avatar} ${getAvatarClass(i)}`}>{getInitial(p.name)}</span>
+                      <span className={styles.playerName}>
+                        {p.name}
+                        {!p.connected && <span className={styles.incorrectText}> (reconnecting...)</span>}
                       </span>
-                      <button onClick={() => handleKick(p.id, p.name)} className={styles.kickBtn}>
-                        Remove
-                      </button>
-                    </li>
-                  ))
-                : <li className={styles.emptyText}>Waiting for players...</li>}
+                    </span>
+                    <button onClick={() => handleKick(p.id, p.name)} className={styles.kickBtn}>
+                      Remove
+                    </button>
+                  </li>
+                ))
+              ) : (
+                <li className={styles.emptyText} style={{ textAlign: 'center', padding: '24px' }}>
+                  ⏳ Waiting for players to join with code <strong>{code}</strong>...
+                </li>
+              )}
             </ul>
 
-            <div className={styles.form}>
+            <div className={styles.form} style={{ marginTop: '16px' }}>
+              <label className={styles.sectionLabel} style={{ margin: '0 0 -6px' }}>Select Quiz to Launch</label>
               <select
                 className={styles.select}
                 value={selectedQuizId}
                 onChange={(e) => setSelectedQuizId(e.target.value)}
               >
-                <option value="">Select a quiz</option>
+                <option value="">Choose a Quiz...</option>
                 {quizzes.map((q) => (
-                  <option key={q._id} value={q._id}>{q.title}</option>
+                  <option key={q._id} value={q._id}>
+                    {q.title} ({q.questions?.length || 0} Qs • {q.difficulty})
+                  </option>
                 ))}
               </select>
 
@@ -214,8 +241,9 @@ export default function HostRoomPage() {
                 onClick={handleStartQuiz}
                 disabled={!selectedQuizId || !room?.players?.length}
                 className={styles.button}
+                style={{ padding: '14px' }}
               >
-                Start quiz
+                🚀 Start Live Quiz ({room?.players?.length || 0} Players Ready)
               </button>
             </div>
           </>
@@ -223,9 +251,9 @@ export default function HostRoomPage() {
 
         {question && (
           <div>
-            <p className={styles.compactStatus}>{connectedCount} players connected</p>
+            <p className={styles.compactStatus}>👥 {connectedCount} players connected</p>
             <div className={styles.timerRow}>
-              <p className={styles.questionMeta}>Question {question.index + 1} / {question.totalQuestions}</p>
+              <p className={styles.questionMeta}>Question {question.index + 1} of {question.totalQuestions}</p>
               <span className={timerCountClass}>{secondsLeft}s</span>
             </div>
             <div className={styles.timerBar}>
@@ -235,7 +263,9 @@ export default function HostRoomPage() {
               />
             </div>
             <h2 className={styles.questionText}>{question.text}</h2>
-            <p className={styles.waitingText}>{answerCount.answeredCount} / {answerCount.totalPlayers} answered</p>
+            <div className={styles.answerStatusBox}>
+              <span>📊 Submissions: <strong>{answerCount.answeredCount}</strong> of <strong>{answerCount.totalPlayers}</strong> answered</span>
+            </div>
           </div>
         )}
 
@@ -245,14 +275,14 @@ export default function HostRoomPage() {
               <div className={styles.correctCard}>
                 <span className={styles.correctIcon}>✓</span>
                 <div>
-                  <p className={styles.correctCardLabel}>Correct answer</p>
+                  <p className={styles.correctCardLabel}>Correct Answer</p>
                   <p className={styles.correctCardText}>
                     {lastQuestionFull.options[questionResult.correctIndex]}
                   </p>
                 </div>
               </div>
             )}
-            <p className={styles.sectionLabel}>Results</p>
+            <p className={styles.sectionLabel}>Round Results</p>
             <ul className={styles.list}>
               {Object.values(questionResult.results).map((r, i) => (
                 <li key={i} className={styles.resultRow} style={{ animationDelay: `${i * 40}ms` }}>
@@ -261,30 +291,30 @@ export default function HostRoomPage() {
                     <span className={styles.resultName}>{r.name}</span>
                   </span>
                   <span className={`${styles.pointsBadge} ${r.isCorrect ? styles.pointsPositive : styles.pointsZero}`}>
-                    {r.isCorrect ? `+${r.pointsEarned}` : "0"}
+                    {r.isCorrect ? `+${r.pointsEarned} pts` : "0 pts"}
                   </span>
                 </li>
               ))}
             </ul>
-            <p className={styles.sectionLabel}>Leaderboard</p>
+            <p className={styles.sectionLabel}>Live Leaderboard</p>
             <ol className={styles.leaderboard}>
               {questionResult.leaderboard.map((p, i) => (
                 <li key={i} className={styles.leaderboardItem}>
                   <span className={`${styles.avatar} ${getAvatarClass(i)}`}>{getInitial(p.name)}</span>
                   <span className={styles.leaderboardName}>{p.name}</span>
-                  <span className={styles.score}>{p.score}</span>
+                  <span className={styles.score}>{p.score} pts</span>
                 </li>
               ))}
             </ol>
-            <button onClick={handleNextQuestion} className={styles.button} style={{ marginTop: 16 }}>
-              {isLastQuestion ? "View final results" : "Next question"}
+            <button onClick={handleNextQuestion} className={styles.button} style={{ marginTop: 18, padding: '13px' }}>
+              {isLastQuestion ? "🏆 View Final Podium" : "Next Question →"}
             </button>
           </div>
         )}
 
         {gameInProgress && (
-          <button onClick={handleEndGame} className={styles.buttonSecondary} style={{ marginTop: 12 }}>
-            End quiz now
+          <button onClick={handleEndGame} className={styles.buttonSecondary} style={{ marginTop: 14 }}>
+            End Quiz Early
           </button>
         )}
 
@@ -294,12 +324,11 @@ export default function HostRoomPage() {
               <p className={styles.waitingText} style={{ marginBottom: 12 }}>You ended the quiz early.</p>
             )}
             {finishReason === "all-players-left" && (
-              <p className={styles.waitingText} style={{ marginBottom: 12 }}>Quiz ended automatically - all players left.</p>
+              <p className={styles.waitingText} style={{ marginBottom: 12 }}>Quiz ended automatically — all players left.</p>
             )}
-            <p className={styles.sectionLabel}>Final results</p>
 
             {finalLeaderboard.length > 0 && (
-              <p className={styles.winnerBanner}>🏆 {finalLeaderboard[0].name} wins!</p>
+              <p className={styles.winnerBanner}>🏆 {finalLeaderboard[0].name} Wins the Match!</p>
             )}
 
             {finalLeaderboard.length >= 2 && (
@@ -311,7 +340,7 @@ export default function HostRoomPage() {
                         {getInitial(p.name)}
                       </div>
                       <p className={styles.podiumName}>{p.name}</p>
-                      <p className={styles.podiumScore}>{p.score}</p>
+                      <p className={styles.podiumScore}>{p.score} pts</p>
                       <div className={`${styles.podiumBar} ${i === 1 ? styles.podiumBar1 : i === 0 ? styles.podiumBar2 : styles.podiumBar3}`}>
                         {i === 1 ? "🥇" : i === 0 ? "🥈" : "🥉"}
                       </div>
@@ -321,17 +350,18 @@ export default function HostRoomPage() {
               </div>
             )}
 
+            <p className={styles.sectionLabel}>Full Standings</p>
             <ol className={styles.leaderboard} style={finalLeaderboard.length >= 2 ? { counterReset: "rank 3" } : undefined}>
               {(finalLeaderboard.length >= 2 ? finalLeaderboard.slice(3) : finalLeaderboard).map((p, i) => (
                 <li key={i} className={styles.leaderboardItem}>
                   <span className={`${styles.avatar} ${getAvatarClass(i + 3)}`}>{getInitial(p.name)}</span>
                   <span className={styles.leaderboardName}>{p.name}</span>
-                  <span className={styles.score}>{p.score}</span>
+                  <span className={styles.score}>{p.score} pts</span>
                 </li>
               ))}
             </ol>
-            <button onClick={goBackToMultiplayer} className={styles.button} style={{ marginTop: 16 }}>
-              Back to multiplayer
+            <button onClick={goBackToMultiplayer} className={styles.button} style={{ marginTop: 18 }}>
+              Back to Multiplayer Hub
             </button>
           </div>
         )}

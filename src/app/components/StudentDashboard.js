@@ -68,11 +68,15 @@ export default function StudentDashboard({ user, logout }) {
 
   return (
     <div className={styles.page}>
-
-      {/* ── Navbar ── */}
       <nav className={styles.navbar}>
         <div className={styles.navInner}>
-          <h1 className={styles.logo}>🎓 IntelliQuiz</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '26px' }}>🎓</span>
+            <div>
+              <h1 className={styles.logo} style={{ margin: 0, fontSize: '19px' }}>IntelliQuiz</h1>
+              <span style={{ fontSize: '11.5px', color: 'var(--primary-300)', fontWeight: 600 }}>Student Dashboard</span>
+            </div>
+          </div>
           <div className={styles.navRight}>
             <span className={styles.navName}>{user.name}</span>
             <span className={styles.navRole}>Student</span>
@@ -82,8 +86,6 @@ export default function StudentDashboard({ user, logout }) {
       </nav>
 
       <div className={styles.wrapper}>
-
-        {/* ── Hero banner ── */}
         <div className={styles.hero}>
           <div className={styles.heroLeft}>
             <div className={styles.heroEmoji}>{motivation.emoji}</div>
@@ -99,7 +101,6 @@ export default function StudentDashboard({ user, logout }) {
           </div>
         </div>
 
-        {/* ── Stats grid ── */}
         {loading ? (
           <div className={styles.statsGrid}>
             {[1,2,3,4].map(i => <div key={i} className={styles.statSkeleton} />)}
@@ -133,10 +134,7 @@ export default function StudentDashboard({ user, logout }) {
           </div>
         )}
 
-        {/* ── Bottom section: recent + quick actions ── */}
         <div className={styles.bottomGrid}>
-
-          {/* Recent activity */}
           <div className={styles.panel}>
             <div className={styles.panelHeader}>
               <h3 className={styles.panelTitle}>Recent Activity</h3>
@@ -173,7 +171,6 @@ export default function StudentDashboard({ user, logout }) {
             )}
           </div>
 
-          {/* Quick actions */}
           <div className={styles.panel}>
             <div className={styles.panelHeader}>
               <h3 className={styles.panelTitle}>Quick Actions</h3>

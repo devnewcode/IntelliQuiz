@@ -1,9 +1,9 @@
-
+/**
+ * Grades submitted answers against stored quiz questions.
+ * @param {Array<{_id: string, question: string, options: string[], correctAnswer: number}>} questions
+ * @param {Array<{questionId: string, selectedOptionText: string}>} submittedAnswers
+ */
 function gradeQuiz(questions, submittedAnswers) {
-  // questions: the REAL questions from the database, each shaped like:
-  //   { _id, question, options: [string, string, string, string], correctAnswer: number }
-  // submittedAnswers: what the player picked, shaped like:
-  //   [{ questionId, selectedOptionText }]
 
   const submittedByQuestionId = new Map(
     submittedAnswers.map((a) => [String(a.questionId), a.selectedOptionText])

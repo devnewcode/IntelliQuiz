@@ -4,16 +4,14 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '../../lib/authContext'
 import styles from './page.module.css'
 
-// ── Components ──
-import QuizList    from '../components/quiz/QuizList'
-import QuizTaking  from '../components/quiz/QuizTaking'
+import QuizList from '../components/quiz/QuizList'
+import QuizTaking from '../components/quiz/QuizTaking'
 import QuizResults from '../components/quiz/QuizResults'
 
 export default function Student() {
   const { user, loading } = useAuth()
   const router = useRouter()
 
-  // ── Quiz state ──
   const [quizzes, setQuizzes] = useState([])
   const [selectedQuiz, setSelectedQuiz] = useState(null)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -23,28 +21,21 @@ export default function Student() {
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
   const [startTime, setStartTime] = useState(null)
 
-  // ── Timer state ──
   const [timeLeft, setTimeLeft] = useState(null)
   const [timerInterval, setTimerInterval] = useState(null)
   const [timeExpired, setTimeExpired] = useState(false)
-
-  // ── UI state ──
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // ── Anti-cheat state ──
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
   const [showTabWarning, setShowTabWarning] = useState(false)
 
-  // ── AI explanation state ──
   const [explanations, setExplanations] = useState([])
   const [isFetchingExplanations, setIsFetchingExplanations] = useState(false)
 
-  // ── Cleanup timer on unmount ──
   useEffect(() => {
     return () => { if (timerInterval) clearInterval(timerInterval) }
   }, [timerInterval])
 
-  // ── Auth guard + fetch quizzes ──
   useEffect(() => {
     if (!loading) {
       if (!user) { router.push('/'); return }
@@ -53,7 +44,7 @@ export default function Student() {
     fetchQuizzes()
   }, [user, loading, router])
 
-  // ── Tab switch detection (anti-cheat) ──
+  // Anti-cheat: tab switch detection
   useEffect(() => {
     if (!selectedQuiz || showResults) return
     const handleVisibility = () => {
@@ -70,10 +61,6 @@ export default function Student() {
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [selectedQuiz, showResults])
 
-  // ─────────────────────────────────────────
-  // API calls
-  // ─────────────────────────────────────────
-
   const fetchQuizzes = async () => {
     try {
       const token = localStorage.getItem('token')
@@ -89,9 +76,7 @@ export default function Student() {
     try {
       const token = localStorage.getItem('token')
       const timeTaken = startTime ? Math.floor((new Date() - startTime) / 1000) : 0
-      // The server now grades everything itself (it re-checks each answer
-      // against the real quiz in the database) — it only needs to know
-      // WHAT was picked (as text), not a pre-computed score or index.
+      // Send selected answer text; server independently validates and scores against DB
       const answersForServer = result.processedAnswers.map(a => ({
         questionId: a.questionId,
         selectedOptionText: a.selectedOptionText
@@ -145,14 +130,11 @@ export default function Student() {
     setIsFetchingExplanations(false)
   }
 
-  //quiz logic
-
   const shuffleArray = (arr) => [...arr].sort(() => Math.random() - 0.5)
 
   const startQuiz = (quiz) => {
     if (!quiz?.questions?.length) { alert('This quiz has no questions.'); return }
 
-    // Shuffle questions and options
     const shuffledQuestions = shuffleArray(quiz.questions).map(q => {
       const correctAnswerText = q.options[q.correctAnswer]
       const shuffledOptions = shuffleArray(q.options)
@@ -161,7 +143,6 @@ export default function Student() {
     })
     quiz = { ...quiz, questions: shuffledQuestions }
 
-    // Reset all state
     setSelectedQuiz(quiz)
     setCurrentQuestionIndex(0)
     setAnswers({})
@@ -175,7 +156,6 @@ export default function Student() {
     setShowTabWarning(false)
     setExplanations([])
 
-    // Start timer if enabled
     if (quiz.timerEnabled && quiz.timeLimit > 0) {
       const totalSeconds = quiz.timeLimit * 60
       setTimeLeft(totalSeconds)
@@ -204,7 +184,6 @@ export default function Student() {
       const userAnswer = answers[questionId]
       const isCorrect = userAnswer !== undefined && userAnswer === q.correctAnswer
       if (isCorrect) correctAnswers++
-      // selectedOptionText is what the server now uses to grade — see saveResult()
       const selectedOptionText = userAnswer !== undefined ? q.options[userAnswer] : null
       return { questionId, selectedOption: userAnswer ?? -1, selectedOptionText, isCorrect }
     })
@@ -261,8 +240,6 @@ export default function Student() {
     setExplanations([])
   }
 
-//render
-
   if (loading) return (
     <div className={styles.container}>
       <div className={styles.loading}>Loading...</div>
@@ -275,7 +252,6 @@ export default function Student() {
     </div>
   )
 
-  // ── Results view ──
   if (showResults && selectedQuiz) {
     const timeTaken = startTime ? Math.floor((new Date() - startTime) / 1000) : 0
     return (
@@ -297,7 +273,6 @@ export default function Student() {
     )
   }
 
-  // ── Quiz taking view ──
   if (selectedQuiz?.questions?.length > 0) {
     return (
       <QuizTaking
@@ -320,7 +295,6 @@ export default function Student() {
     )
   }
 
-  // ── Quiz list view ──
   return (
     <QuizList
       quizzes={quizzes}

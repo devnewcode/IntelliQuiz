@@ -1,15 +1,12 @@
-// Extracts plain text from uploaded PDF or DOCX files.
-// RAG flow: extractText -> chunkText -> embed -> store
-
 /**
- * @param {Buffer} fileBuffer - raw bytes of the uploaded file
+ * Extracts raw text from PDF or DOCX buffer.
+ * @param {Buffer} fileBuffer
  * @param {'pdf'|'docx'} fileType
- * @returns {Promise<string>} extracted plain text
+ * @returns {Promise<string>}
  */
 export async function extractText(fileBuffer, fileType) {
   if (fileType === 'pdf') {
-    // Import the CanvasFactory before PDFParse so PDF.js
-    // can initialize correctly in Node/Vercel.
+    // CanvasFactory must be imported before PDFParse for PDF.js runtime in Node
     const { CanvasFactory } = await import('pdf-parse/worker')
     const { PDFParse } = await import('pdf-parse')
 

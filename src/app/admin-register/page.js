@@ -56,10 +56,10 @@ export default function AdminRegister() {
         {/* Header */}
         <div className={styles.authHeader}>
           <div className={styles.logoSection}>
-            <span className={styles.logoIcon}>🔐</span>
-            <h1 className={styles.authTitle}>Admin Portal</h1>
+            <span className={styles.logoIcon}>🎓</span>
+            <h1 className={styles.authTitle}>IntelliQuiz</h1>
           </div>
-          <p className={styles.authSubtitle}>Restricted Access — IntelliQuiz</p>
+          <p className={styles.authSubtitle}>🔐 Admin Registration Portal</p>
         </div>
 
         {error   && <div className={styles.errorAlert}>{error}</div>}

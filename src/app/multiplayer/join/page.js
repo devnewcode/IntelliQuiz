@@ -25,14 +25,14 @@ export default function JoinRoomPage() {
     const socket = getSocket();
     const code = roomCode.trim().toUpperCase();
 
-    socket.emit("player:join-room", { roomCode: code, playerName, userId: user?.id }, (res) => {
+    socket.emit("player:join-room", { roomCode: code, playerName: playerName.trim(), userId: user?.id }, (res) => {
       setJoining(false);
       if (!res.ok) {
-        setError(res.error || "Could not join room");
+        setError(res.error || "Could not join room. Check your room code.");
         return;
       }
       sessionStorage.setItem(`mp_player_${code}`, res.playerId);
-      sessionStorage.setItem(`mp_name_${code}`, playerName);
+      sessionStorage.setItem(`mp_name_${code}`, playerName.trim());
       router.push(`/multiplayer/play/${code}`);
     });
   }
@@ -41,23 +41,40 @@ export default function JoinRoomPage() {
     <div className={styles.page}>
       <div className={styles.card}>
         <Link href="/multiplayer" className={styles.backLink}>← Back</Link>
-        <h1 className={styles.title}>Join a quiz</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <span style={{ fontSize: '24px' }}>🎓</span>
+          <h1 className={styles.title} style={{ margin: 0 }}>IntelliQuiz Live</h1>
+        </div>
+        <p className={styles.subtitle}>Enter your nickname and the room code to join the game!</p>
+
         <form onSubmit={handleJoin} className={styles.form}>
-          <input
-            className={styles.input}
-            placeholder="Your name"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-          />
-          <input
-            className={styles.input}
-            placeholder="Room code"
-            value={roomCode}
-            onChange={(e) => setRoomCode(e.target.value)}
-          />
-          <button type="submit" disabled={joining} className={styles.button}>
-            {joining ? "Joining..." : "Join"}
+          <div>
+            <label className={styles.sectionLabel} style={{ display: 'block', marginBottom: '6px' }}>Your Nickname</label>
+            <input
+              className={styles.input}
+              placeholder="e.g. Alex, Sam, Champion"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label className={styles.sectionLabel} style={{ display: 'block', marginBottom: '6px' }}>Room Code</label>
+            <input
+              className={styles.inputRoomCode}
+              placeholder="6-LETTER CODE"
+              maxLength={10}
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+              required
+            />
+          </div>
+
+          <button type="submit" disabled={joining || !playerName.trim() || !roomCode.trim()} className={styles.button} style={{ marginTop: '8px' }}>
+            {joining ? "Connecting to Game..." : "🚀 Enter Game Lobby"}
           </button>
+
           {error && <p className={styles.error}>{error}</p>}
         </form>
       </div>

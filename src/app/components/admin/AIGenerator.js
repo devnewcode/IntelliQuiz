@@ -3,15 +3,8 @@ import { useState } from 'react'
 import styles from '../../admin/page.module.css'
 import RagPipelineViewer from './RagPipelineViewer'
 
-// Set to false (or remove the import + JSX line below) to hide the RAG
-// pipeline viewer, e.g. outside of an interview/demo.
+// Toggle RAG pipeline visualization
 const SHOW_RAG_VIEWER = true
-
-// AI question generator - fields mode + prompt mode + document (RAG) mode,
-// preview, confirm/discard.
-// Props:
-//   onConfirm    — (questions) => void  called when admin clicks "Add All to Quiz"
-//   isSubmitting — boolean
 
 export default function AIGenerator({ onConfirm, isSubmitting }) {
   const [aiMode, setAiMode] = useState('fields')
@@ -21,17 +14,14 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
   const [aiPreview, setAiPreview] = useState([])
   const [aiError, setAiError] = useState('')
 
-  // ── Document (RAG) mode state ──
-  // Keeps track of the uploaded document and where it is in the RAG pipeline.
   const [docFile, setDocFile] = useState(null)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
-  const [sourceDocument, setSourceDocument] = useState(null) // { id, fileName, chunkCount }
+  const [sourceDocument, setSourceDocument] = useState(null)
   const [docPrompt, setDocPrompt] = useState('')
   const [ragStage, setRagStage] = useState('idle') // idle | uploading | uploaded | generating | done
   const [ragStats, setRagStats] = useState({ totalChunks: 0, retrievedChunks: 0 })
 
-  // Remove temporary document/chunk data from the database.
   const clearDocuments = async () => {
     try {
       const token = localStorage.getItem('token')
@@ -40,11 +30,10 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
         headers: { Authorization: `Bearer ${token}` }
       })
     } catch {
-      // best-effort cleanup, safe to ignore
+      // best-effort cleanup
     }
   }
 
-  // Reset document mode whenever the admin switches to it.
   const switchToDocumentMode = () => {
     setAiMode('document')
     setSourceDocument(null)
@@ -54,7 +43,6 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
     clearDocuments()
   }
 
-  // Upload -> extract text -> chunk -> embed -> store the document for RAG.
   const uploadDocument = async () => {
     if (!docFile) {
       setUploadError('Please choose a PDF or DOCX file first'); return
@@ -93,7 +81,6 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
     setIsUploading(false)
   }
 
-  // Builds the request based on the selected mode and asks Gemini for questions.
   const generateQuestions = async () => {
     setAiError('')
     setAiPreview([])
@@ -135,7 +122,6 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
       if (res.ok && data.questions) {
         setAiPreview(data.questions)
 
-        // RAG response includes how many chunks were retrieved.
         if (data.rag) {
           setRagStats((s) => ({ ...s, retrievedChunks: data.rag.retrievedChunks }))
           setRagStage('done')
@@ -154,7 +140,6 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
     setIsGenerating(false)
   }
 
-  // Add generated questions to the quiz, then clear the AI/document state.
   const confirmAiQuestions = () => {
     const withIds = aiPreview.map(q => ({
       ...q,
@@ -175,7 +160,6 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
     }
   }
 
-  // Steps shown in the RAG viewer: upload -> chunk/embed -> retrieve -> generate.
   const ragSteps = [
     {
       label: sourceDocument ? `"${sourceDocument.fileName}" uploaded` : 'Document uploaded',

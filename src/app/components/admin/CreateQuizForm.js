@@ -1,18 +1,11 @@
 'use client'
 import styles from '../../admin/page.module.css'
 
-// Quiz metadata form - title, description, category, difficulty, timer.
-// Here i add these props:
-//   newQuiz      — current quiz state object
-//   onChange     — (updatedQuiz) => void
-//   isSubmitting — boolean
-
 export default function CreateQuizForm({ newQuiz, onChange, isSubmitting }) {
   return (
     <div className={styles.card}>
       <h2 className={styles.sectionTitle}>Create New Quiz</h2>
 
-      {/* Title */}
       <div className={styles.formGroup}>
         <label className={styles.label}>Quiz Title</label>
         <input
@@ -24,7 +17,6 @@ export default function CreateQuizForm({ newQuiz, onChange, isSubmitting }) {
           disabled={isSubmitting} />
       </div>
 
-      {/* Description */}
       <div className={styles.formGroup}>
         <label className={styles.label}>Description</label>
         <textarea
@@ -36,7 +28,6 @@ export default function CreateQuizForm({ newQuiz, onChange, isSubmitting }) {
           disabled={isSubmitting} />
       </div>
 
-      {/* Category + Difficulty */}
       <div className={styles.flexRow}>
         <div className={`${styles.formGroup} ${styles.flexColumn}`}>
           <label className={styles.label}>Category</label>
@@ -62,7 +53,6 @@ export default function CreateQuizForm({ newQuiz, onChange, isSubmitting }) {
         </div>
       </div>
 
-      {/* Timer */}
       <div className={styles.flexRow}>
         <div className={`${styles.formGroup} ${styles.flexColumn}`}>
           <label className={styles.checkboxLabel}>
@@ -87,10 +77,9 @@ export default function CreateQuizForm({ newQuiz, onChange, isSubmitting }) {
               disabled={isSubmitting}
               placeholder="30" />
           </div>
-
         )}
       </div>
-      {/* Public quiz toggle */}
+
       <div className={styles.flexRow}>
         <div className={`${styles.formGroup} ${styles.flexColumn}`}>
           <label className={styles.checkboxLabel}>

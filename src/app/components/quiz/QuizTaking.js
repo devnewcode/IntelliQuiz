@@ -1,9 +1,10 @@
 'use client'
+import { useEffect } from 'react'
 import styles from '../../student/page.module.css'
 
-// this quiztaking component have:
-// active quiz view — shows current question, options, timer, dots nav.
-// and also have these props:
+// Quiz taking interface with options, timer, progress bar, dots nav,
+// and keyboard navigation support (1-4, Arrow Left/Right).
+// Props:
 //   quiz                 — selected quiz object (with shuffled questions)
 //   currentQuestionIndex — which question is active
 //   answers              — { questionId: selectedOptionIndex }
@@ -19,6 +20,8 @@ import styles from '../../student/page.module.css'
 //   onSubmit             — () => void
 //   onExit               — () => void
 //   onDismissWarning     — () => void
+
+const OPTION_KEYS = ['A', 'B', 'C', 'D', 'E', 'F']
 
 export default function QuizTaking({
   quiz,
@@ -37,16 +40,56 @@ export default function QuizTaking({
   onExit,
   onDismissWarning,
 }) {
-  const currentQuestion = quiz.questions[currentQuestionIndex]
-  if (!currentQuestion) return (
-    <div className={styles.container}>
-      <div className={styles.alertError}>Error loading question.</div>
-    </div>
-  )
+  const currentQuestion = quiz?.questions?.[currentQuestionIndex]
 
-  const questionId = currentQuestion._id || currentQuestion.id || currentQuestionIndex.toString()
-  const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100
+  const questionId = currentQuestion?._id || currentQuestion?.id || currentQuestionIndex.toString()
+  const progress = quiz?.questions?.length ? ((currentQuestionIndex + 1) / quiz.questions.length) * 100 : 0
   const answeredCount = Object.keys(answers).length
+  const remainingCount = (quiz?.questions?.length || 0) - answeredCount
+
+  // ── Keyboard Shortcuts (1-4 / A-D and Arrow Keys) ──
+  useEffect(() => {
+    if (!currentQuestion || isSubmitting || timeExpired) return
+
+    const handleKeyDown = (e) => {
+      // Don't intercept if user is in an input or textarea
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return
+
+      const key = e.key.toLowerCase()
+
+      // Option selection by 1-4 or a-d
+      if (['1', '2', '3', '4'].includes(key)) {
+        const optIdx = parseInt(key, 10) - 1
+        if (optIdx < (currentQuestion.options?.length || 0)) {
+          onAnswer(questionId, optIdx)
+        }
+      } else if (['a', 'b', 'c', 'd'].includes(key)) {
+        const optIdx = key.charCodeAt(0) - 97
+        if (optIdx < (currentQuestion.options?.length || 0)) {
+          onAnswer(questionId, optIdx)
+        }
+      } else if (e.key === 'ArrowRight' || e.key === 'Right') {
+        if (currentQuestionIndex < quiz.questions.length - 1) {
+          onNext()
+        }
+      } else if (e.key === 'ArrowLeft' || e.key === 'Left') {
+        if (currentQuestionIndex > 0) {
+          onPrev()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentQuestion, currentQuestionIndex, questionId, isSubmitting, timeExpired, quiz?.questions?.length, onAnswer, onNext, onPrev])
+
+  if (!currentQuestion) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.alertError}>Error loading question.</div>
+      </div>
+    )
+  }
 
   const getDifficultyTag = (d) =>
     d === 'easy' ? styles.metaTagGreen :
@@ -133,9 +176,9 @@ export default function QuizTaking({
           </span>
           <div className={styles.questionTags}>
             <span className={`${styles.metaTag} ${getDifficultyTag(quiz.difficulty)}`}>
-              {quiz.difficulty}
+              {quiz.difficulty ? quiz.difficulty.toUpperCase() : 'MEDIUM'}
             </span>
-            <span className={styles.metaTag}>{quiz.category}</span>
+            <span className={styles.metaTag}>{quiz.category || 'General'}</span>
           </div>
         </div>
 
@@ -152,6 +195,9 @@ export default function QuizTaking({
                   ${isSubmitting || timeExpired ? styles.optionDisabled : ''}
                 `}
                 onClick={() => onAnswer(questionId, i)}>
+                <span className={styles.optionLetterBadge}>
+                  {OPTION_KEYS[i] || i + 1}
+                </span>
                 <div className={`${styles.optionRadio} ${isSelected ? styles.optionRadioSelected : ''}`} />
                 <span className={`${styles.optionText} ${isSelected ? styles.optionTextSelected : ''}`}>
                   {option}
@@ -162,7 +208,7 @@ export default function QuizTaking({
         </div>
       </div>
 
-      {/* Navigation buttons */}
+      {/* Navigation buttons & Progress stats */}
       <div className={styles.quizNav}>
         <button
           className={styles.btnNav}
@@ -171,8 +217,8 @@ export default function QuizTaking({
           ← Previous
         </button>
 
-        <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
-          {answeredCount}/{quiz.questions.length} answered
+        <span className={styles.answeredStatusText}>
+          {answeredCount}/{quiz.questions.length} answered {remainingCount > 0 && `(${remainingCount} remaining)`}
         </span>
 
         {currentQuestionIndex < quiz.questions.length - 1 ? (
@@ -191,6 +237,12 @@ export default function QuizTaking({
           </button>
         )}
       </div>
+
+      {/* Keyboard Shortcut Hint Pill */}
+      <div className={styles.keyboardHintPill}>
+        <span>⌨️ Shortcuts: Press <strong>1–4</strong> (or <strong>A–D</strong>) to select • <strong>← / →</strong> to navigate</span>
+      </div>
+
     </div>
   )
 }

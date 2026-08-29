@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-// Gemini API key used for embeddings
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 const EMBEDDING_MODEL = 'gemini-embedding-001'
 
@@ -8,9 +7,9 @@ const EMBEDDING_MODEL = 'gemini-embedding-001'
 export const EMBEDDING_DIMENSIONS = 768
 
 /**
- * Embeds a single piece of text (e.g. a search query / quiz topic).
+ * Embeds a single text string.
  * @param {string} text
- * @returns {Promise<number[]>} embedding vector
+ * @returns {Promise<number[]>}
  */
 export async function embedText(text) {
   const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL })
@@ -24,14 +23,13 @@ export async function embedText(text) {
 }
 
 /**
- * Embeds many chunks of text (e.g. all chunks of an uploaded document).
- * Processes in batches to stay under the batchEmbedContents request cap.
+ * Generates embeddings for an array of text chunks in batches.
  * @param {string[]} texts
- * @returns {Promise<number[][]>} one embedding vector per input text, same order
+ * @returns {Promise<number[][]>}
  */
 export async function embedBatch(texts) {
   const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL })
-  const BATCH_SIZE = 100 // Max requests per batch
+  const BATCH_SIZE = 100
 
   const allEmbeddings = []
 

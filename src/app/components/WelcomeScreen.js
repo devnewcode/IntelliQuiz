@@ -49,7 +49,6 @@ export default function WelcomeScreen({ user, onViewDashboard }) {
           )}
         </div>
 
-        {/* Continue button only for admin */}
         {isAdminRole(user.role) && (
           <button
             onClick={() => router.push('/admin')}
