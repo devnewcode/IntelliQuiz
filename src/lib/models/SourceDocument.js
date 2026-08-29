@@ -1,8 +1,5 @@
 import mongoose from 'mongoose'
 
-// Stores metadata for an uploaded document.
-// The actual file is not stored here; its text is stored in DocumentChunk.
-
 const SourceDocumentSchema = new mongoose.Schema({
   fileName: {
     type: String,

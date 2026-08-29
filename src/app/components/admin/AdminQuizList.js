@@ -2,93 +2,129 @@
 import { useState } from 'react'
 import styles from '../../admin/page.module.css'
 
-// This component shows existing quizzes with delete button and inline preview toggle.
-// Here Props are:
-//   quizzes      — array of quiz objects
-//   onDelete     — (quizId, quizTitle) => void
-//   isSubmitting — boolean
-
 export default function AdminQuizList({ quizzes, onDelete, isSubmitting }) {
   const [previewQuizId, setPreviewQuizId] = useState(null)
 
+  const getDifficultyClass = (diff) => {
+    if (diff === 'easy') return styles.diffEasy
+    if (diff === 'hard') return styles.diffHard
+    return styles.diffMedium
+  }
+
   if (quizzes.length === 0) {
     return (
-      <div className={styles.emptyState}>No quizzes created yet.</div>
+      <div className={styles.emptyState}>
+        <div style={{ fontSize: '36px', marginBottom: '12px' }}>📋</div>
+        <p style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>No quizzes found</p>
+        <p style={{ fontSize: '13px', color: 'var(--text-dim)', marginTop: '4px' }}>
+          Switch to the &ldquo;Create New Quiz&rdquo; tab to create your first quiz!
+        </p>
+      </div>
     )
   }
 
   return (
-    <>
-      {quizzes.map(quiz => (
-        <div key={quiz._id} className={styles.quizItem}>
+    <div className={styles.quizListContainer}>
+      {quizzes.map(quiz => {
+        const isPreviewing = previewQuizId === quiz._id
+        const isPublicWithPasscode = quiz.isPublic && (quiz.passcode || quiz.hasPasscode)
+        const isPublicNoPasscode = quiz.isPublic && !quiz.passcode && !quiz.hasPasscode
 
-          {/* Quiz info */}
-          <h3 className={styles.quizTitle}>{quiz.title}</h3>
-          <p className={styles.quizInfo}>
-            <span className={styles.quizLabel}>Description: </span>{quiz.description}
-          </p>
-          <p className={styles.quizInfo}>
-            <span className={styles.quizLabel}>Category: </span>{quiz.category}
-          </p>
-          <p className={styles.quizInfo}>
-            <span className={styles.quizLabel}>Difficulty: </span>{quiz.difficulty}
-          </p>
-          <p className={styles.quizInfo}>
-            <span className={styles.quizLabel}>Questions: </span>{quiz.questions.length}
-          </p>
-          <p className={styles.quizInfo}>
-            <span className={styles.quizLabel}>Timer: </span>
-            {quiz.timerEnabled ? `${quiz.timeLimit} minutes` : 'Disabled'}
-          </p>
-          <p className={styles.quizInfo}>
-            <span className={styles.quizLabel}>Created: </span>
-            {new Date(quiz.createdAt).toLocaleDateString()}
-          </p>
-          <p className={styles.quizInfo}>
-            <span className={styles.quizLabel}>By: </span>
-            {quiz.createdBy?.name || 'Unknown'}
-          </p>
+        return (
+          <div key={quiz._id} className={styles.quizItem}>
+            <div className={styles.quizHeaderRow}>
+              <div>
+                <h3 className={styles.quizTitle}>{quiz.title}</h3>
+                {quiz.description && (
+                  <p className={styles.quizDescription}>{quiz.description}</p>
+                )}
+              </div>
 
-          {/* Actions */}
-          <div className={styles.quizActions}>
-            <button
-              className={`${styles.btn} ${styles.btnDanger}`}
-              onClick={() => onDelete(quiz._id, quiz.title)}
-              disabled={isSubmitting}>
-              Delete Quiz
-            </button>
-            <button
-              className={`${styles.btn} ${styles.btnSecondary}`}
-              onClick={() => setPreviewQuizId(previewQuizId === quiz._id ? null : quiz._id)}>
-              {previewQuizId === quiz._id ? 'Hide Questions' : 'Preview Questions'}
-            </button>
-          </div>
-
-          {/* Inline questions preview panel */}
-          {previewQuizId === quiz._id && (
-            <div className={styles.questionsSummary} style={{ marginTop: '20px' }}>
-              <h3 className={styles.summaryTitle}>
-                {quiz.questions.length} Question{quiz.questions.length !== 1 ? 's' : ''}
-              </h3>
-              {quiz.questions.map((q, i) => (
-                <div key={q._id || i} className={styles.questionCard}>
-                  <div className={styles.questionHeader}>Question {i + 1}</div>
-                  <div className={styles.questionText}>{q.question}</div>
-                  <div className={styles.optionList}>
-                    {q.options.map((opt, j) => (
-                      <div
-                        key={j}
-                        className={`${styles.optionItem} ${q.correctAnswer === j ? styles.correctOption : ''}`}>
-                        {j + 1}. {opt}{q.correctAnswer === j && ' ✓'}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              <div className={styles.quizActions}>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnSecondary}`}
+                  onClick={() => setPreviewQuizId(isPreviewing ? null : quiz._id)}>
+                  {isPreviewing ? 'Hide Questions' : `👁️ Preview (${quiz.questions?.length || 0})`}
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnDanger}`}
+                  onClick={() => onDelete(quiz._id, quiz.title)}
+                  disabled={isSubmitting}>
+                  🗑️ Delete
+                </button>
+              </div>
             </div>
-          )}
-        </div>
-      ))}
-    </>
+
+            <div className={styles.quizBadgeRow}>
+              <span className={styles.metaBadge}>
+                📁 {quiz.category || 'General'}
+              </span>
+
+              <span className={`${styles.metaBadge} ${getDifficultyClass(quiz.difficulty)}`}>
+                {quiz.difficulty ? quiz.difficulty.toUpperCase() : 'MEDIUM'}
+              </span>
+
+              <span className={styles.metaBadge}>
+                📝 {quiz.questions?.length || 0} Questions
+              </span>
+
+              <span className={styles.metaBadge}>
+                {quiz.timerEnabled ? `⏰ ${quiz.timeLimit} mins` : '∞ No Timer'}
+              </span>
+
+              {isPublicWithPasscode ? (
+                <span className={`${styles.metaBadge} ${styles.accessPasscode}`}>
+                  🔒 Passcode: {quiz.passcode || 'Required'}
+                </span>
+              ) : isPublicNoPasscode ? (
+                <span className={`${styles.metaBadge} ${styles.accessPublic}`}>
+                  🌐 Public Play
+                </span>
+              ) : (
+                <span className={`${styles.metaBadge} ${styles.accessPrivate}`}>
+                  🎓 Students Only
+                </span>
+              )}
+            </div>
+
+            <div className={styles.quizFooterMeta}>
+              <span>Created by: <strong>{quiz.createdBy?.name || 'Admin'}</strong></span>
+              <span>•</span>
+              <span>{new Date(quiz.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+            </div>
+
+            {isPreviewing && (
+              <div className={styles.previewDrawer}>
+                <div className={styles.previewDrawerHeader}>
+                  <h4>Questions in this Quiz ({quiz.questions?.length || 0})</h4>
+                </div>
+
+                <div className={styles.previewDrawerList}>
+                  {quiz.questions?.map((q, i) => (
+                    <div key={q._id || i} className={styles.previewQuestionCard}>
+                      <div className={styles.questionHeader}>Question {i + 1}</div>
+                      <div className={styles.questionText}>{q.question}</div>
+                      <div className={styles.optionList}>
+                        {q.options?.map((opt, j) => (
+                          <div
+                            key={j}
+                            className={`${styles.optionItem} ${q.correctAnswer === j ? styles.correctOption : ''}`}>
+                            <span>{j + 1}.</span> {opt}
+                            {q.correctAnswer === j && <span className={styles.correctCheck}>✓ Correct</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </div>
+        )
+      })}
+    </div>
   )
 }

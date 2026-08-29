@@ -2,14 +2,6 @@
 import { useState } from 'react'
 import styles from '../../admin/page.module.css'
 
-// Manual question adding + questions summary list + save quiz button.
-// here props are:
-//   questions    — current questions array on the quiz being built
-//   onAdd        — (question) => void  add a new question
-//   onRemove     — (id) => void  remove a question
-//   onSave       — () => void  save the whole quiz
-//   isSubmitting — boolean
-
 export default function QuestionEditor({ questions, onAdd, onRemove, onSave, isSubmitting }) {
   const [currentQuestion, setCurrentQuestion] = useState({
     question: '', options: ['', '', '', ''], correctAnswer: 0
@@ -27,7 +19,6 @@ export default function QuestionEditor({ questions, onAdd, onRemove, onSave, isS
     <div className={styles.card}>
       <h3 className={styles.sectionTitle}>Add Question Manually</h3>
 
-      {/* Question text */}
       <div className={styles.formGroup}>
         <label className={styles.label}>Question</label>
         <textarea
@@ -42,7 +33,6 @@ export default function QuestionEditor({ questions, onAdd, onRemove, onSave, isS
         </span>
       </div>
 
-      {/* Options */}
       {currentQuestion.options.map((option, index) => (
         <div key={index} className={styles.formGroup}>
           <label className={styles.label}>Option {index + 1}</label>
@@ -77,7 +67,6 @@ export default function QuestionEditor({ questions, onAdd, onRemove, onSave, isS
         + Add Question
       </button>
 
-      {/* Questions summary */}
       {questions.length > 0 && (
         <div className={styles.questionsSummary}>
           <h3 className={styles.summaryTitle}>Questions Added ({questions.length})</h3>
@@ -105,8 +94,7 @@ export default function QuestionEditor({ questions, onAdd, onRemove, onSave, isS
         </div>
       )}
 
-      {/* Save quiz button */}
-      <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '2px solid #f1f5f9' }}>
+      <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid rgba(139, 92, 246, 0.2)' }}>
         <button
           className={`${styles.btn} ${styles.btnSuccess}`}
           onClick={onSave}

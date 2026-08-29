@@ -5,10 +5,9 @@ import { io } from "socket.io-client";
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000";
 
 let socket;
-let socketToken; // token the current connection authenticated with
+let socketToken;
 
-// one shared connection reused across the app.... re-checks the login
-// token on every call and reconnects if it changed.... so the socket server always knows who you actually are.
+// Singleton client connection; reconnects if auth token changes
 export function getSocket() {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -21,7 +20,7 @@ export function getSocket() {
   if (token !== socketToken) {
     socket.auth = { token };
     socketToken = token;
-    socket.disconnect().connect(); // forces the server to re-check auth
+    socket.disconnect().connect();
   }
 
   return socket;

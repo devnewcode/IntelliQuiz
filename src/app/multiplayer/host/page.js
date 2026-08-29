@@ -67,7 +67,11 @@ export default function HostLobbyPage() {
     <div className={styles.page}>
       <div className={styles.card}>
         <Link href="/multiplayer" className={styles.backLink}>← Back</Link>
-        <h1 className={styles.title}>Host a multiplayer quiz</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <span style={{ fontSize: '24px' }}>🎓</span>
+          <h1 className={styles.title} style={{ margin: 0 }}>IntelliQuiz Live</h1>
+        </div>
+        <p className={styles.subtitle}>Create a multiplayer room to host a live match.</p>
         <form onSubmit={handleCreateRoom} className={styles.form}>
           <input
             className={styles.input}

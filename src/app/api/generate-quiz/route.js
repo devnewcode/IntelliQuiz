@@ -41,7 +41,6 @@ function getClientIp(request) {
   return forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
 }
 
-// Parses Gemini's response and checks it against the question schema.
 async function generateAndValidate(model, promptText) {
   const result = await model.generateContent(promptText)
   const rawText = result.response.text()
@@ -69,7 +68,6 @@ async function generateAndValidate(model, promptText) {
 
 export async function POST(request) {
   try {
-    // Limit repeated requests from the same IP.
     const ip = getClientIp(request)
     if (isRateLimited(ip)) {
       return NextResponse.json(
@@ -84,7 +82,6 @@ export async function POST(request) {
     let retrievedCount = 0
     let chunkCountForStats = 0
 
-    // RAG: retrieve only the most relevant chunks from the selected document.
     if (sourceDocumentId) {
       if (!prompt || !prompt.trim()) {
         return NextResponse.json(
@@ -177,7 +174,7 @@ Rules:
 
     let attempt = await generateAndValidate(model, fullPrompt)
 
-    // Retry once if Gemini returns invalid JSON or the wrong structure.
+    // Retry with explicit repair prompt if schema validation fails
     if (!attempt.success) {
       console.warn('First Gemini response invalid, retrying with repair prompt:', attempt.error)
 

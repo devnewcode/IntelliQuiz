@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { getSocket } from "@/lib/socket";
 import styles from "../../multiplayer.module.css";
 
+const OPTION_SYMBOLS = ["🔺 A", "🔷 B", "🟡 C", "🟩 D", "⭐ E", "💎 F"];
+
 function getInitial(name) {
   return (name || "?").trim().charAt(0).toUpperCase() || "?";
 }
@@ -22,7 +24,7 @@ export default function PlayPage() {
   const [questionResult, setQuestionResult] = useState(null);
   const [finalLeaderboard, setFinalLeaderboard] = useState(null);
   const [finishReason, setFinishReason] = useState(null);
-  const [secondsLeft, setSecondsLeft] = useState(null); // countdown for the current question
+  const [secondsLeft, setSecondsLeft] = useState(null);
   const [hostDisconnected, setHostDisconnected] = useState(false);
   const [roomClosed, setRoomClosed] = useState(false);
   const [kicked, setKicked] = useState(false);
@@ -30,8 +32,6 @@ export default function PlayPage() {
   useEffect(() => {
     const socket = getSocket();
 
-    // rejoins this room using the id saved on first join - covers both
-    // a page refresh and the socket auto-reconnecting after a drop
     function attemptJoin() {
       const savedPlayerId = sessionStorage.getItem(`mp_player_${code}`);
       const savedName = sessionStorage.getItem(`mp_name_${code}`);
@@ -89,7 +89,6 @@ export default function PlayPage() {
     };
   }, [code]);
 
-  // ticks the on-screen countdown down every second for the current question
   useEffect(() => {
     if (!question) return;
     setSecondsLeft(question.timeLimitSec);
@@ -101,7 +100,6 @@ export default function PlayPage() {
     return () => clearInterval(interval);
   }, [question]);
 
-  // locks in the picked option and sends it to the server
   function handleAnswer(index) {
     if (submitted) return;
     setSelected(index);
@@ -119,6 +117,8 @@ export default function PlayPage() {
     router.push("/multiplayer");
   }
 
+  const playerName = typeof window !== 'undefined' ? sessionStorage.getItem(`mp_name_${code}`) : '';
+
   const timerRatio = question && secondsLeft != null ? secondsLeft / question.timeLimitSec : 1;
   const timerState = secondsLeft <= 5 ? "danger" : timerRatio <= 0.4 ? "warn" : "normal";
   const timerFillClass = [styles.timerFill, timerState === "danger" ? styles.timerFillDanger : timerState === "warn" ? styles.timerFillWarn : ""].join(" ");
@@ -128,9 +128,9 @@ export default function PlayPage() {
     return (
       <div className={styles.page}>
         <div className={styles.card}>
-          <h1 className={styles.title}>Removed from room</h1>
-          <p className={styles.waitingText} style={{ marginBottom: 20 }}>The host removed you from this game.</p>
-          <button onClick={goBackToMultiplayer} className={styles.buttonSecondary}>Back to multiplayer</button>
+          <h1 className={styles.title}>Removed from Room</h1>
+          <p className={styles.waitingText} style={{ marginBottom: 20 }}>The host removed you from this game session.</p>
+          <button onClick={goBackToMultiplayer} className={styles.buttonSecondary}>Back to Multiplayer</button>
         </div>
       </div>
     );
@@ -140,9 +140,9 @@ export default function PlayPage() {
     return (
       <div className={styles.page}>
         <div className={styles.card}>
-          <h1 className={styles.title}>Room closed</h1>
-          <p className={styles.waitingText} style={{ marginBottom: 20 }}>The host has left and this game has ended.</p>
-          <button onClick={goBackToMultiplayer} className={styles.buttonSecondary}>Back to multiplayer</button>
+          <h1 className={styles.title}>Game Ended</h1>
+          <p className={styles.waitingText} style={{ marginBottom: 20 }}>The host has ended this game session.</p>
+          <button onClick={goBackToMultiplayer} className={styles.buttonSecondary}>Back to Multiplayer</button>
         </div>
       </div>
     );
@@ -150,7 +150,7 @@ export default function PlayPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.card}>
+      <div className={styles.card} style={{ maxWidth: '580px' }}>
         {hostDisconnected && (
           <p className={styles.error} style={{ marginBottom: 16 }}>
             Host connection lost, waiting for them to reconnect...
@@ -160,7 +160,7 @@ export default function PlayPage() {
         {question && (
           <div>
             <div className={styles.timerRow}>
-              <p className={styles.questionMeta}>Question {question.index + 1} / {question.totalQuestions}</p>
+              <p className={styles.questionMeta}>Question {question.index + 1} of {question.totalQuestions}</p>
               <span className={timerCountClass}>{secondsLeft}s</span>
             </div>
             <div className={styles.timerBar}>
@@ -169,7 +169,9 @@ export default function PlayPage() {
                 style={{ width: `${(secondsLeft / question.timeLimitSec) * 100}%` }}
               />
             </div>
+
             <h2 className={styles.questionText}>{question.text}</h2>
+
             <div className={styles.options}>
               {question.options.map((opt, i) => (
                 <button
@@ -178,30 +180,41 @@ export default function PlayPage() {
                   disabled={submitted}
                   className={`${styles.optionBtn} ${selected === i ? styles.optionSelected : ""}`}
                 >
-                  {opt}
+                  <span className={styles.optionSymbolTag}>
+                    {OPTION_SYMBOLS[i] || `${i + 1}`}
+                  </span>
+                  <span className={styles.optionBtnText}>{opt}</span>
                 </button>
               ))}
             </div>
-            {submitted && <p className={styles.waitingText} style={{ marginTop: 16 }}>Answer submitted, waiting for others...</p>}
+
+            {submitted && (
+              <div className={styles.lockedInBox}>
+                <span>🔒 Answer Locked In! Waiting for round to end...</span>
+              </div>
+            )}
           </div>
         )}
 
         {questionResult && (
           <div>
             <p className={`${styles.resultBanner} ${selected === questionResult.correctIndex ? styles.correctText : styles.incorrectText}`}>
-              {selected === questionResult.correctIndex ? "✅ Correct!" : "❌ Not quite"}
+              {selected === questionResult.correctIndex ? "🎉 Correct Answer!" : "❌ Incorrect"}
             </p>
-            <p className={styles.sectionLabel}>Leaderboard</p>
+
+            <p className={styles.sectionLabel}>Live Leaderboard</p>
             <ol className={styles.leaderboard}>
               {questionResult.leaderboard.map((p, i) => (
                 <li key={i} className={styles.leaderboardItem}>
                   <span className={`${styles.avatar} ${getAvatarClass(i)}`}>{getInitial(p.name)}</span>
-                  <span className={styles.leaderboardName}>{p.name}</span>
-                  <span className={styles.score}>{p.score}</span>
+                  <span className={styles.leaderboardName}>
+                    {p.name} {p.name === playerName && <span style={{ color: '#34d399', fontWeight: 800 }}> (You)</span>}
+                  </span>
+                  <span className={styles.score}>{p.score} pts</span>
                 </li>
               ))}
             </ol>
-            <p className={styles.waitingText} style={{ marginTop: 16 }}>Waiting for the host to continue...</p>
+            <p className={styles.waitingText} style={{ marginTop: 16 }}>Waiting for host to load next question...</p>
           </div>
         )}
 
@@ -210,10 +223,9 @@ export default function PlayPage() {
             {finishReason === "ended-early" && (
               <p className={styles.waitingText} style={{ marginBottom: 12 }}>The host ended the quiz early.</p>
             )}
-            <p className={styles.sectionLabel}>Final results</p>
 
             {finalLeaderboard.length > 0 && (
-              <p className={styles.winnerBanner}>🏆 {finalLeaderboard[0].name} wins!</p>
+              <p className={styles.winnerBanner}>🏆 {finalLeaderboard[0].name} Wins!</p>
             )}
 
             {finalLeaderboard.length >= 2 && (
@@ -224,8 +236,10 @@ export default function PlayPage() {
                       <div className={styles.podiumAvatar} style={{ background: i === 1 ? "linear-gradient(135deg,#fbbf24,#f59e0b)" : i === 0 ? "linear-gradient(135deg,#cbd5e1,#94a3b8)" : "linear-gradient(135deg,#d97706,#92400e)" }}>
                         {getInitial(p.name)}
                       </div>
-                      <p className={styles.podiumName}>{p.name}</p>
-                      <p className={styles.podiumScore}>{p.score}</p>
+                      <p className={styles.podiumName}>
+                        {p.name} {p.name === playerName && " (You)"}
+                      </p>
+                      <p className={styles.podiumScore}>{p.score} pts</p>
                       <div className={`${styles.podiumBar} ${i === 1 ? styles.podiumBar1 : i === 0 ? styles.podiumBar2 : styles.podiumBar3}`}>
                         {i === 1 ? "🥇" : i === 0 ? "🥈" : "🥉"}
                       </div>
@@ -235,23 +249,35 @@ export default function PlayPage() {
               </div>
             )}
 
+            <p className={styles.sectionLabel}>Full Standings</p>
             <ol className={styles.leaderboard} style={finalLeaderboard.length >= 2 ? { counterReset: "rank 3" } : undefined}>
               {(finalLeaderboard.length >= 2 ? finalLeaderboard.slice(3) : finalLeaderboard).map((p, i) => (
                 <li key={i} className={styles.leaderboardItem}>
                   <span className={`${styles.avatar} ${getAvatarClass(i + 3)}`}>{getInitial(p.name)}</span>
-                  <span className={styles.leaderboardName}>{p.name}</span>
-                  <span className={styles.score}>{p.score}</span>
+                  <span className={styles.leaderboardName}>
+                    {p.name} {p.name === playerName && <span style={{ color: '#34d399', fontWeight: 800 }}> (You)</span>}
+                  </span>
+                  <span className={styles.score}>{p.score} pts</span>
                 </li>
               ))}
             </ol>
-            <button onClick={goBackToMultiplayer} className={styles.button} style={{ marginTop: 16 }}>
-              Back to multiplayer
+
+            <button onClick={goBackToMultiplayer} className={styles.button} style={{ marginTop: 18 }}>
+              Back to Multiplayer Hub
             </button>
           </div>
         )}
 
         {!question && !questionResult && !finalLeaderboard && (
-          <p className={styles.waitingText}>Waiting for the host to start the quiz...</p>
+          <div style={{ textAlign: 'center', padding: '24px 8px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '14px', animation: 'float 3s ease-in-out infinite' }}>🎮</div>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' }}>
+              You&apos;re in the game lobby!
+            </h3>
+            <p className={styles.waitingText} style={{ margin: 0 }}>
+              Waiting for the host to select a quiz and start the match...
+            </p>
+          </div>
         )}
       </div>
     </div>

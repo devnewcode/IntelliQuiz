@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '../../lib/authContext'
 import styles from './page.module.css'
 
-// ── Components ──
 import CreateQuizForm from '../components/admin/CreateQuizForm'
 import AIGenerator from '../components/admin/AIGenerator'
 import QuestionEditor from '../components/admin/QuestionEditor'
@@ -14,42 +13,40 @@ export default function Admin() {
   const { user, loading } = useAuth()
   const router = useRouter()
 
-  // ── Quiz being built ──(old code)
-  // const [newQuiz, setNewQuiz] = useState({
-  //   title: '', description: '', category: 'General',
-  //   difficulty: 'medium', timeLimit: 30, timerEnabled: true, questions: []
-  // })
+  const [activeTab, setActiveTab] = useState('manage') // 'manage' | 'create'
+  const [creationMethod, setCreationMethod] = useState('ai') // 'ai' | 'manual'
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterDifficulty, setFilterDifficulty] = useState('all')
 
-  //quiz being built updated for public page also
   const [newQuiz, setNewQuiz] = useState({
-    title: '', description: '', category: 'General',
-    difficulty: 'medium', timeLimit: 30, timerEnabled: true, questions: [],
-    isPublic: false, passcode: ''
+    title: '',
+    description: '',
+    category: 'General',
+    difficulty: 'medium',
+    timeLimit: 30,
+    timerEnabled: true,
+    questions: [],
+    isPublic: false,
+    passcode: ''
   })
 
-
-
-  // ── Existing quizzes ──
   const [quizzes, setQuizzes] = useState([])
-
-  // ── UI state ──
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
 
-  // ── Auth guard ──
   useEffect(() => {
     if (!loading) {
-      if (!user) { router.push('/'); return }
+      if (!user) {
+        router.push('/')
+        return
+      }
       if (user.role !== 'admin' && user.role !== 'superadmin') {
-        router.push('/'); return
+        router.push('/')
+        return
       }
     }
     fetchQuizzes()
   }, [user, loading, router])
-
-  // ─────────────────────────────────────────
-  // API calls
-  // ─────────────────────────────────────────
 
   const fetchQuizzes = async () => {
     try {
@@ -58,31 +55,54 @@ export default function Admin() {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await res.json()
-      if (res.ok) setQuizzes(data.quizzes)
-    } catch (e) { console.error(e) }
+      if (res.ok && Array.isArray(data.quizzes)) {
+        setQuizzes(data.quizzes)
+        if (data.quizzes.length === 0) {
+          setActiveTab('create')
+        }
+      }
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   const saveQuiz = async () => {
-    if (!newQuiz.title.trim() || newQuiz.questions.length === 0) {
-      alert('Please provide quiz title and at least one question'); return
+    if (!newQuiz.title.trim()) {
+      alert('Please provide a quiz title')
+      return
     }
-    setIsSubmitting(true); setMessage('')
+    if (newQuiz.questions.length === 0) {
+      alert('Please add at least one question before publishing the quiz')
+      return
+    }
+    setIsSubmitting(true)
+    setMessage('')
     try {
       const token = localStorage.getItem('token')
       const res = await fetch('/api/quizzes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(newQuiz)
       })
       const data = await res.json()
       if (res.ok) {
-        setMessage('Quiz created successfully!')
+        setMessage('✓ Quiz created successfully!')
         setNewQuiz({
-          title: '', description: '', category: 'General',
-          difficulty: 'medium', timeLimit: 30, timerEnabled: true, questions: [],
-          isPublic: false, passcode: ''
+          title: '',
+          description: '',
+          category: 'General',
+          difficulty: 'medium',
+          timeLimit: 30,
+          timerEnabled: true,
+          questions: [],
+          isPublic: false,
+          passcode: ''
         })
         fetchQuizzes()
+        setActiveTab('manage')
       } else {
         setMessage(data.message || 'Failed to create quiz')
       }
@@ -101,105 +121,254 @@ export default function Admin() {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await res.json()
-      if (res.ok) { setMessage('Quiz deleted successfully!'); fetchQuizzes() }
-      else setMessage(data.message || 'Failed to delete quiz')
-    } catch (err) { console.error(err); setMessage('Failed to delete quiz') }
+      if (res.ok) {
+        setMessage('✓ Quiz deleted successfully!')
+        fetchQuizzes()
+      } else {
+        setMessage(data.message || 'Failed to delete quiz')
+      }
+    } catch (err) {
+      console.error(err)
+      setMessage('Failed to delete quiz')
+    }
   }
-
-  // ─────────────────────────────────────────
-  // Question handlers
-  // ─────────────────────────────────────────
 
   const addQuestion = (question) => {
     setNewQuiz(prev => ({ ...prev, questions: [...prev.questions, question] }))
+    setMessage('✓ Question added to draft!')
   }
 
   const removeQuestion = (id) => {
     setNewQuiz(prev => ({ ...prev, questions: prev.questions.filter(q => q.id !== id) }))
   }
 
-  // Called by AIGenerator when admin confirms generated questions
   const addAiQuestions = (questions) => {
     setNewQuiz(prev => ({ ...prev, questions: [...prev.questions, ...questions] }))
     setMessage(`✓ ${questions.length} AI questions added! Review them below.`)
   }
 
-  // ─────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────
+  const totalQuestions = quizzes.reduce((sum, q) => sum + (q.questions?.length || 0), 0)
+  const publicQuizzesCount = quizzes.filter(q => q.isPublic).length
 
-  if (loading) return (
-    <div className={styles.container}>
-      <div className={styles.loading}>Loading...</div>
-    </div>
-  )
+  const filteredQuizzes = quizzes.filter(q => {
+    const matchesSearch =
+      q.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      q.category?.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesDifficulty =
+      filterDifficulty === 'all' || q.difficulty === filterDifficulty
+    return matchesSearch && matchesDifficulty
+  })
 
-  if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) return (
-    <div className={styles.container}>
-      <div className={`${styles.alert} ${styles.alertError}`}>
-        Access denied. Admin privileges required.
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loading}>Loading Admin Dashboard...</div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
+    return (
+      <div className={styles.container}>
+        <div className={`${styles.alert} ${styles.alertError}`}>
+          Access denied. Admin privileges required.
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.container}>
-
-      {/* Header */}
       <div className={styles.header}>
-        <h1 className={styles.headerTitle}>Admin Panel</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '26px' }}>🎓</span>
+          <div>
+            <h1 className={styles.headerTitle}>IntelliQuiz</h1>
+            <span style={{ fontSize: '12px', color: 'var(--primary-300)', fontWeight: 600 }}>Admin Dashboard</span>
+          </div>
+        </div>
         <div className={styles.headerActions}>
-          <span className={styles.userName}>{user.name}</span>
+          <span className={styles.userName}>{user.name} ({user.role})</span>
           <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => router.push('/')}>
             Home
           </button>
           <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => router.push('/results')}>
-            View Results
+            📊 Results
           </button>
         </div>
       </div>
 
-      {/* Alert message */}
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon}>📚</div>
+          <div className={styles.statValue}>{quizzes.length}</div>
+          <div className={styles.statLabel}>Total Quizzes</div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon}>📝</div>
+          <div className={styles.statValue}>{totalQuestions}</div>
+          <div className={styles.statLabel}>Total Questions</div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon}>🌐</div>
+          <div className={styles.statValue}>{publicQuizzesCount}</div>
+          <div className={styles.statLabel}>Public Quizzes</div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon}>✨</div>
+          <div className={styles.statValue}>{newQuiz.questions.length}</div>
+          <div className={styles.statLabel}>Draft Questions</div>
+        </div>
+      </div>
+
       {message && (
         <div className={`${styles.alert} ${message.includes('success') || message.includes('✓')
           ? styles.alertSuccess
           : styles.alertError
-          }`}>
+        }`}>
           {message}
         </div>
       )}
 
-      {/* Quiz metadata form */}
-      <CreateQuizForm
-        newQuiz={newQuiz}
-        onChange={setNewQuiz}
-        isSubmitting={isSubmitting}
-      />
+      <div className={styles.adminTabs}>
+        <button
+          className={`${styles.adminTab} ${activeTab === 'manage' ? styles.adminTabActive : ''}`}
+          onClick={() => setActiveTab('manage')}>
+          📚 Manage Quizzes ({quizzes.length})
+        </button>
+        <button
+          className={`${styles.adminTab} ${activeTab === 'create' ? styles.adminTabActive : ''}`}
+          onClick={() => setActiveTab('create')}>
+          ⚡ Create New Quiz {newQuiz.questions.length > 0 && `(${newQuiz.questions.length} draft)`}
+        </button>
+      </div>
 
-      {/* AI question generator */}
-      <AIGenerator
-        onConfirm={addAiQuestions}
-        isSubmitting={isSubmitting}
-      />
+      {activeTab === 'manage' && (
+        <div>
+          {quizzes.length > 0 && (
+            <div className={styles.filterSection}>
+              <div className={styles.searchBox}>
+                <span className={styles.searchIcon}>🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search quizzes by title or category..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className={styles.searchInput}
+                />
+                {searchQuery && (
+                  <button
+                    className={styles.clearSearchBtn}
+                    onClick={() => setSearchQuery('')}>
+                    ✕
+                  </button>
+                )}
+              </div>
 
-      {/* Manual question editor + save */}
-      <QuestionEditor
-        questions={newQuiz.questions}
-        onAdd={addQuestion}
-        onRemove={removeQuestion}
-        onSave={saveQuiz}
-        isSubmitting={isSubmitting}
-      />
+              <div className={styles.filterGroup}>
+                <span className={styles.filterLabel}>Difficulty:</span>
+                <select
+                  value={filterDifficulty}
+                  onChange={e => setFilterDifficulty(e.target.value)}
+                  className={styles.filterSelect}>
+                  <option value="all">All Difficulties</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+            </div>
+          )}
 
-      {/* Existing quizzes list */}
-      <h2 className={styles.sectionTitle} style={{ marginTop: '8px' }}>
-        Existing Quizzes
-      </h2>
-      <AdminQuizList
-        quizzes={quizzes}
-        onDelete={deleteQuiz}
-        isSubmitting={isSubmitting}
-      />
+          <AdminQuizList
+            quizzes={filteredQuizzes}
+            onDelete={deleteQuiz}
+            isSubmitting={isSubmitting}
+          />
+        </div>
+      )}
+
+      {activeTab === 'create' && (
+        <div className={styles.createWorkflow}>
+          <CreateQuizForm
+            newQuiz={newQuiz}
+            onChange={setNewQuiz}
+            isSubmitting={isSubmitting}
+          />
+
+          <div className={styles.card}>
+            <h3 className={styles.sectionTitle}>
+              Add Questions to Quiz
+            </h3>
+
+            <div className={styles.methodToggle}>
+              <button
+                type="button"
+                className={`${styles.methodBtn} ${creationMethod === 'ai' ? styles.methodBtnActive : ''}`}
+                onClick={() => setCreationMethod('ai')}>
+                ✨ AI Generator (Prompt & RAG)
+              </button>
+              <button
+                type="button"
+                className={`${styles.methodBtn} ${creationMethod === 'manual' ? styles.methodBtnActive : ''}`}
+                onClick={() => setCreationMethod('manual')}>
+                ✍️ Manual Question Editor
+              </button>
+            </div>
+
+            {creationMethod === 'ai' && (
+              <AIGenerator
+                onConfirm={addAiQuestions}
+                isSubmitting={isSubmitting}
+              />
+            )}
+
+            {creationMethod === 'manual' && (
+              <QuestionEditor
+                questions={newQuiz.questions}
+                onAdd={addQuestion}
+                onRemove={removeQuestion}
+                onSave={saveQuiz}
+                isSubmitting={isSubmitting}
+              />
+            )}
+          </div>
+
+          {creationMethod === 'ai' && newQuiz.questions.length > 0 && (
+            <div className={styles.card}>
+              <h3 className={styles.sectionTitle}>
+                Draft Questions Ready for Publishing ({newQuiz.questions.length})
+              </h3>
+              <div className={styles.optionList}>
+                {newQuiz.questions.map((q, idx) => (
+                  <div key={q.id || idx} className={styles.questionCard}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div className={styles.questionHeader}>Question {idx + 1}</div>
+                      <button
+                        className={`${styles.btn} ${styles.btnDanger}`}
+                        style={{ padding: '4px 10px', fontSize: '12px' }}
+                        onClick={() => removeQuestion(q.id || idx)}>
+                        Remove
+                      </button>
+                    </div>
+                    <div className={styles.questionText}>{q.question}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: '20px', display: 'flex', gap: '12px' }}>
+                <button
+                  className={`${styles.btn} ${styles.btnSuccess}`}
+                  onClick={saveQuiz}
+                  disabled={isSubmitting}>
+                  {isSubmitting ? 'Publishing Quiz...' : '✓ Publish Quiz Now'}
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
 
     </div>
   )

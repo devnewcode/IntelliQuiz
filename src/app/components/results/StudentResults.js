@@ -3,15 +3,18 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from '../../results/page.module.css'
 
-// it shows the student's own flat list of results - stats, filter, result cards.
-// here the props are:
+// Student personal analytics & results component with search,
+// difficulty filtering, and score/date sorting.
+// Props:
 //   results       — array of student's own results
 //   getScoreColor — (score) => styles className
 //   getScoreEmoji — (score) => emoji string
 
-export default function StudentResults({ results, getScoreColor, getScoreEmoji }) {
+export default function StudentResults({ results = [], getScoreColor, getScoreEmoji }) {
   const router = useRouter()
   const [filter, setFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('newest') // 'newest' | 'highest' | 'lowest'
 
   // Stats
   const myStats = {
@@ -20,28 +23,39 @@ export default function StudentResults({ results, getScoreColor, getScoreEmoji }
       ? Math.round(results.reduce((a, r) => a + r.score, 0) / results.length)
       : 0,
     excellent: results.filter(r => r.score >= 80).length,
-    good: results.filter(r => r.score >= 60 && r.score < 80).length
+    good: results.filter(r => r.score >= 60 && r.score < 80).length,
+    needsWork: results.filter(r => r.score < 60).length
   }
 
-  // Filter
-  const filteredResults = results.filter(result => {
-    if (filter === 'all') return true
-    if (filter === 'excellent') return result.score >= 80
-    if (filter === 'good') return result.score >= 60 && result.score < 80
-    if (filter === 'needsWork') return result.score < 60
-    return true
+  // Filter & Search
+  let processedResults = results.filter(result => {
+    const title = result.quiz?.title || ''
+    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase())
+
+    let matchesFilter = true
+    if (filter === 'excellent') matchesFilter = result.score >= 80
+    if (filter === 'good') matchesFilter = result.score >= 60 && result.score < 80
+    if (filter === 'needsWork') matchesFilter = result.score < 60
+
+    return matchesSearch && matchesFilter
+  })
+
+  // Sort
+  processedResults = [...processedResults].sort((a, b) => {
+    if (sortBy === 'highest') return b.score - a.score
+    if (sortBy === 'lowest') return a.score - b.score
+    return new Date(b.completedAt) - new Date(a.completedAt)
   })
 
   return (
     <>
-      {/* Stats grid */}
       {results.length > 0 && (
         <>
           <div className={styles.statsGrid}>
             <div className={styles.statCard}>
               <div className={styles.statIcon}>📝</div>
               <div className={styles.statValue}>{myStats.total}</div>
-              <div className={styles.statLabel}>Total Quizzes</div>
+              <div className={styles.statLabel}>Total Attempts</div>
             </div>
             <div className={styles.statCard}>
               <div className={styles.statIcon}>📈</div>
@@ -51,18 +65,48 @@ export default function StudentResults({ results, getScoreColor, getScoreEmoji }
             <div className={styles.statCard}>
               <div className={styles.statIcon}>🏆</div>
               <div className={styles.statValue}>{myStats.excellent}</div>
-              <div className={styles.statLabel}>Excellent (80%+)</div>
+              <div className={styles.statLabel}>Mastery (80%+)</div>
             </div>
             <div className={styles.statCard}>
               <div className={styles.statIcon}>⭐</div>
               <div className={styles.statValue}>{myStats.good}</div>
-              <div className={styles.statLabel}>Good (60-79%)</div>
+              <div className={styles.statLabel}>Passing (60-79%)</div>
             </div>
           </div>
 
-          {/* Filter bar */}
+          <div className={styles.controlsBar}>
+            <div className={styles.searchBox}>
+              <span className={styles.searchIcon}>🔍</span>
+              <input
+                type="text"
+                placeholder="Search your quiz results..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className={styles.searchInput}
+              />
+              {searchQuery && (
+                <button
+                  className={styles.clearSearchBtn}
+                  onClick={() => setSearchQuery('')}>
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className={styles.sortGroup}>
+              <span className={styles.filterLabel}>Sort:</span>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                className={styles.sortSelect}>
+                <option value="newest">Most Recent</option>
+                <option value="highest">Highest Score</option>
+                <option value="lowest">Lowest Score</option>
+              </select>
+            </div>
+          </div>
+
           <div className={styles.filterSection}>
-            <div className={styles.filterLabel}>Filter Results:</div>
             <div className={styles.filterButtons}>
               <button
                 className={`${styles.filterBtn} ${filter === 'all' ? styles.filterActive : ''}`}
@@ -82,38 +126,45 @@ export default function StudentResults({ results, getScoreColor, getScoreEmoji }
               <button
                 className={`${styles.filterBtn} ${filter === 'needsWork' ? styles.filterActive : ''}`}
                 onClick={() => setFilter('needsWork')}>
-                📚 Needs Work ({results.filter(r => r.score < 60).length})
+                📚 Needs Work ({myStats.needsWork})
               </button>
             </div>
           </div>
         </>
       )}
 
-      {/* Results list */}
-      {filteredResults.length === 0 ? (
+      {results.length === 0 ? (
         <div className={styles.emptyState}>
           <div className={styles.emptyIcon}>📋</div>
           <h3>No quiz results found</h3>
-          <p>
-            {filter !== 'all'
-              ? 'Try changing the filter'
-              : 'Start taking quizzes to see your results here!'}
-          </p>
-          {filter === 'all' && (
-            <button
-              onClick={() => router.push('/student')}
-              className={styles.primaryBtn}>
-              Take Your First Quiz
-            </button>
-          )}
+          <p>Start taking quizzes to see your personal progress and analytics here!</p>
+          <button
+            onClick={() => router.push('/student')}
+            className={styles.primaryBtn}
+            style={{ marginTop: '16px' }}>
+            Take Your First Quiz →
+          </button>
+        </div>
+      ) : processedResults.length === 0 ? (
+        <div className={styles.emptyState}>
+          <div className={styles.emptyIcon}>🔍</div>
+          <h3>No matching results</h3>
+          <p>Try clearing your search query or switching your filter.</p>
+          <button
+            type="button"
+            className={styles.filterBtn}
+            style={{ marginTop: '16px' }}
+            onClick={() => { setSearchQuery(''); setFilter('all') }}>
+            Clear Search & Filters
+          </button>
         </div>
       ) : (
         <div className={styles.resultsGrid}>
-          {filteredResults.map((result) => (
+          {processedResults.map((result) => (
             <div key={result._id} className={styles.quizCard}>
               <div className={styles.quizHeader}>
                 <h3 className={styles.quizTitle}>
-                  {result.quiz?.title || 'Quiz Title Not Available'}
+                  {result.quiz?.title || 'Quiz Attempt'}
                 </h3>
                 <div className={`${styles.scoreBadge} ${getScoreColor(result.score)}`}>
                   <span className={styles.scoreEmoji}>{getScoreEmoji(result.score)}</span>
@@ -139,7 +190,9 @@ export default function StudentResults({ results, getScoreColor, getScoreEmoji }
                 <div className={styles.detailItem}>
                   <span className={styles.detailIcon}>📅</span>
                   <span className={styles.detailText}>
-                    {new Date(result.completedAt).toLocaleDateString()} at{' '}
+                    {new Date(result.completedAt).toLocaleDateString(undefined, {
+                      month: 'short', day: 'numeric', year: 'numeric'
+                    })} at{' '}
                     {new Date(result.completedAt).toLocaleTimeString([], {
                       hour: '2-digit', minute: '2-digit'
                     })}

@@ -7,12 +7,10 @@ import { embedText } from './embed'
 const VECTOR_INDEX_NAME = 'vector_index'
 
 /**
- * Embeds a query (e.g. quiz topic) and finds the most semantically
- * similar chunks previously stored for a given source document.
- *
- * @param {string} query - e.g. the topic/prompt the admin typed
- * @param {string} sourceDocumentId - restrict search to one uploaded doc
- * @param {number} [topK] - how many chunks to retrieve
+ * Retrieves top-K most semantically relevant chunks for a document.
+ * @param {string} query
+ * @param {string} sourceDocumentId
+ * @param {number} [topK=8]
  * @returns {Promise<{text: string, chunkIndex: number}[]>}
  */
 export async function retrieveRelevantChunks(query, sourceDocumentId, topK = 8) {
@@ -20,7 +18,6 @@ export async function retrieveRelevantChunks(query, sourceDocumentId, topK = 8) 
 
   const queryEmbedding = await embedText(query)
 
-  // Search embeddings first, then restrict results to the selected document.
   const results = await DocumentChunk.aggregate([
     {
       $vectorSearch: {

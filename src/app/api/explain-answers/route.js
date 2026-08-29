@@ -7,14 +7,10 @@ export async function POST(request) {
   try {
     const { wrongQuestions } = await request.json()
 
-    // wrongQuestions is an array of:
-    // { questionId, question, options, correctAnswer (index), studentAnswer (index) }
-
     if (!wrongQuestions || wrongQuestions.length === 0) {
       return NextResponse.json({ message: 'No wrong questions provided' }, { status: 400 })
     }
 
-    // Build a prompt listing each wrong question with the correct answer
     const questionLines = wrongQuestions.map((q, i) => {
       const correctText = q.options[q.correctAnswer]
       const studentText = q.options[q.studentAnswer] ?? 'Not answered'
@@ -45,7 +41,6 @@ The questionId values must match exactly: ${wrongQuestions.map(q => `"${q.questi
     const result = await model.generateContent(fullPrompt)
     const text = result.response.text()
 
-    // Clean response — remove markdown if Gemini adds it
     const cleaned = text.replace(/```json|```/g, '').trim()
     const explanations = JSON.parse(cleaned)
 

@@ -1,8 +1,6 @@
 import mongoose from 'mongoose'
 
-// Stores one chunk of a document along with its embedding.
 const DocumentChunkSchema = new mongoose.Schema({
-  // Links this chunk to its source document.
   sourceDocument: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'SourceDocument',
@@ -13,13 +11,11 @@ const DocumentChunkSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  // Position of the chunk in the original document.
   chunkIndex: {
     type: Number,
     required: true
   },
-  // Embedding vector used for semantic search.
-  // Must match the dimensions of the Atlas Vector Search index.
+  // Vector array indexed in MongoDB Atlas
   embedding: {
     type: [Number],
     required: true

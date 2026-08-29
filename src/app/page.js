@@ -21,7 +21,15 @@ export default function Home() {
   const Navbar = () => (
     <nav className={styles.navbar}>
       <div className={styles.navContent}>
-        <h1 className={styles.logo}>🎓 IntelliQuiz</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '26px' }}>🎓</span>
+          <div>
+            <h1 className={styles.logo} style={{ margin: 0, fontSize: '19px' }}>IntelliQuiz</h1>
+            <span style={{ fontSize: '11.5px', color: 'var(--primary-300)', fontWeight: 600 }}>
+              {isAdminRole(user.role) ? 'Admin Portal' : 'Smart Quizzing Platform'}
+            </span>
+          </div>
+        </div>
         <div className={styles.userInfo}>
           <span className={styles.userName}>{user.name}</span>
           <span className={styles.userRole}>{user.role}</span>

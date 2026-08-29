@@ -11,11 +11,7 @@ const ResultSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    // required: true
-
-    //for guest use as well
-    required: false
-
+    required: false // Optional for guest player submissions
   },
   answers: [{
     questionId: String,
