@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../../lib/authContext'
 import styles from './page.module.css'
@@ -32,6 +32,11 @@ export default function Student() {
   const [explanations, setExplanations] = useState([])
   const [isFetchingExplanations, setIsFetchingExplanations] = useState(false)
 
+  const answersRef = useRef({})
+  useEffect(() => { answersRef.current = answers }, [answers])
+
+  const submitQuizManuallyRef = useRef(null)
+
   useEffect(() => {
     return () => { if (timerInterval) clearInterval(timerInterval) }
   }, [timerInterval])
@@ -52,7 +57,7 @@ export default function Student() {
         setTabSwitchCount(prev => {
           const next = prev + 1
           if (next === 1) setShowTabWarning(true)
-          else if (next >= 2) submitQuizManually()
+          else if (next >= 2) submitQuizManuallyRef.current?.()
           return next
         })
       }
@@ -72,61 +77,59 @@ export default function Student() {
     } catch (e) { console.error(e); setQuizzes([]) }
   }
 
-  const saveResult = async (result, expired) => {
+  const saveResult = async (submittedAnswers, expired) => {
     try {
       const token = localStorage.getItem('token')
       const timeTaken = startTime ? Math.floor((new Date() - startTime) / 1000) : 0
-      // Send selected answer text; server independently validates and scores against DB
-      const answersForServer = result.processedAnswers.map(a => ({
-        questionId: a.questionId,
-        selectedOptionText: a.selectedOptionText
-      }))
-      await fetch('/api/results', {
+      const res = await fetch('/api/results', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
           quizId: selectedQuiz._id,
-          answers: answersForServer,
+          answers: submittedAnswers,
           timeTaken,
           timeExpired: expired
         })
       })
-    } catch (e) { console.error(e) }
+      const data = await res.json()
+      if (res.ok && data.success) {
+        return data.result
+      }
+    } catch (e) {
+      console.error('Failed to save result:', e)
+    }
+    return null
   }
 
-  const fetchExplanations = async (processedAnswers) => {
-    if (!selectedQuiz?.questions) return
-
-    const wrongQuestions = processedAnswers
-      .filter(a => !a.isCorrect && a.selectedOption !== -1)
-      .map(a => {
-        const question = selectedQuiz.questions.find(
-          q => (q._id || q.id) === a.questionId ||
-               selectedQuiz.questions.indexOf(q).toString() === a.questionId
-        )
-        if (!question) return null
-        return {
-          questionId: a.questionId,
-          question: question.question,
-          options: question.options,
-          correctAnswer: question.correctAnswer,
-          studentAnswer: a.selectedOption
-        }
-      })
-      .filter(Boolean)
+  const fetchExplanationsFromReview = async (review) => {
+    const wrongQuestions = review
+      .filter(r => !r.isCorrect && r.selectedOptionIndex !== -1)
+      .map(r => ({
+        questionId: r.questionId,
+        question: r.question,
+        options: r.options,
+        correctAnswer: r.correctAnswer,
+        studentAnswer: r.selectedOptionIndex
+      }))
 
     if (wrongQuestions.length === 0) return
 
     setIsFetchingExplanations(true)
     try {
+      const token = localStorage.getItem('token')
       const res = await fetch('/api/explain-answers', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ wrongQuestions })
       })
       const data = await res.json()
       if (res.ok && data.explanations) setExplanations(data.explanations)
-    } catch (e) { console.error('Failed to fetch explanations:', e) }
+    } catch (e) {
+      console.error('Failed to fetch explanations:', e)
+    }
     setIsFetchingExplanations(false)
   }
 
@@ -135,15 +138,13 @@ export default function Student() {
   const startQuiz = (quiz) => {
     if (!quiz?.questions?.length) { alert('This quiz has no questions.'); return }
 
-    const shuffledQuestions = shuffleArray(quiz.questions).map(q => {
-      const correctAnswerText = q.options[q.correctAnswer]
-      const shuffledOptions = shuffleArray(q.options)
-      const newCorrectIndex = shuffledOptions.indexOf(correctAnswerText)
-      return { ...q, options: shuffledOptions, correctAnswer: newCorrectIndex }
+    const questionsWithShuffledOptions = quiz.questions.map(q => {
+      const shuffledOptions = shuffleArray(q.options || [])
+      return { ...q, options: shuffledOptions }
     })
-    quiz = { ...quiz, questions: shuffledQuestions }
+    const preparedQuiz = { ...quiz, questions: questionsWithShuffledOptions }
 
-    setSelectedQuiz(quiz)
+    setSelectedQuiz(preparedQuiz)
     setCurrentQuestionIndex(0)
     setAnswers({})
     setShowResults(false)
@@ -176,46 +177,73 @@ export default function Student() {
     }
   }
 
-  const calculateScore = () => {
-    if (!selectedQuiz?.questions) return { correctAnswers: 0, finalScore: 0, processedAnswers: [] }
-    let correctAnswers = 0
-    const processedAnswers = selectedQuiz.questions.map((q, i) => {
-      const questionId = q._id || q.id || i.toString()
-      const userAnswer = answers[questionId]
-      const isCorrect = userAnswer !== undefined && userAnswer === q.correctAnswer
-      if (isCorrect) correctAnswers++
-      const selectedOptionText = userAnswer !== undefined ? q.options[userAnswer] : null
-      return { questionId, selectedOption: userAnswer ?? -1, selectedOptionText, isCorrect }
-    })
-    const finalScore = Math.round((correctAnswers / selectedQuiz.questions.length) * 100)
-    return { correctAnswers, finalScore, processedAnswers }
-  }
-
   const submitQuizManually = async () => {
     if (isSubmitting) return
     setIsSubmitting(true)
     if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
-    const result = calculateScore()
-    await saveResult(result, false)
-    setScore(result.finalScore)
-    setCorrectAnswersCount(result.correctAnswers)
+
+    const curAnswers = answersRef.current || answers || {}
+    const payloadAnswers = (selectedQuiz?.questions || []).map((q, i) => {
+      const questionId = q._id || q.id || i.toString()
+      const selectedIndex = curAnswers[questionId]
+      const selectedOptionText = selectedIndex !== undefined ? q.options[selectedIndex] : null
+      return { questionId, selectedOptionText }
+    })
+
+    const graded = await saveResult(payloadAnswers, false)
+    if (graded) {
+      setScore(graded.score)
+      setCorrectAnswersCount(graded.correctAnswers)
+      if (graded.review) {
+        const updatedQuestions = selectedQuiz.questions.map((q) => {
+          const qid = String(q._id || q.id)
+          const rev = graded.review.find((r) => String(r.questionId) === qid)
+          const correctIdx = rev ? q.options.indexOf(rev.correctAnswerText) : -1
+          return { ...q, correctAnswer: correctIdx }
+        })
+        setSelectedQuiz(prev => ({ ...prev, questions: updatedQuestions }))
+        fetchExplanationsFromReview(graded.review)
+      }
+    }
+
     setShowResults(true)
     setIsSubmitting(false)
-    fetchExplanations(result.processedAnswers)
   }
+
+  submitQuizManuallyRef.current = submitQuizManually
 
   const submitQuizAutomatically = async () => {
     if (isSubmitting) return
     setIsSubmitting(true)
     if (timerInterval) { clearInterval(timerInterval); setTimerInterval(null) }
-    const processedAnswers = selectedQuiz?.questions?.map((q, i) => ({
-      questionId: q._id || q.id || i.toString(),
-      selectedOption: -1,
-      isCorrect: false
-    })) || []
-    await saveResult({ correctAnswers: 0, finalScore: 0, processedAnswers }, true)
-    setScore(0)
-    setCorrectAnswersCount(0)
+
+    const curAnswers = answersRef.current || {}
+    const payloadAnswers = (selectedQuiz?.questions || []).map((q, i) => {
+      const questionId = q._id || q.id || i.toString()
+      const selectedIndex = curAnswers[questionId]
+      const selectedOptionText = selectedIndex !== undefined ? q.options[selectedIndex] : null
+      return { questionId, selectedOptionText }
+    })
+
+    const graded = await saveResult(payloadAnswers, true)
+    if (graded) {
+      setScore(graded.score)
+      setCorrectAnswersCount(graded.correctAnswers)
+      if (graded.review) {
+        const updatedQuestions = selectedQuiz.questions.map((q) => {
+          const qid = String(q._id || q.id)
+          const rev = graded.review.find((r) => String(r.questionId) === qid)
+          const correctIdx = rev ? q.options.indexOf(rev.correctAnswerText) : -1
+          return { ...q, correctAnswer: correctIdx }
+        })
+        setSelectedQuiz(prev => ({ ...prev, questions: updatedQuestions }))
+        fetchExplanationsFromReview(graded.review)
+      }
+    } else {
+      setScore(0)
+      setCorrectAnswersCount(0)
+    }
+
     setShowResults(true)
     setIsSubmitting(false)
   }

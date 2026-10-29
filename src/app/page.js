@@ -22,7 +22,21 @@ export default function Home() {
     <nav className={styles.navbar}>
       <div className={styles.navContent}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '26px' }}>🎓</span>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            background: 'var(--grad-primary)',
+            color: '#fff'
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+              <path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/>
+            </svg>
+          </div>
           <div>
             <h1 className={styles.logo} style={{ margin: 0, fontSize: '19px' }}>IntelliQuiz</h1>
             <span style={{ fontSize: '11.5px', color: 'var(--primary-300)', fontWeight: 600 }}>

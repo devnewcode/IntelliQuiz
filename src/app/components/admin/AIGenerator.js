@@ -106,6 +106,7 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
     if (aiMode === 'document') setRagStage('generating')
 
     try {
+      const token = localStorage.getItem('token')
       const body = aiMode === 'fields'
         ? { topic: aiFields.topic, difficulty: aiFields.difficulty, count: aiFields.count }
         : aiMode === 'prompt'
@@ -114,7 +115,10 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
 
       const res = await fetch('/api/generate-quiz', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(body)
       })
       const data = await res.json()
@@ -138,6 +142,10 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
     }
 
     setIsGenerating(false)
+  }
+
+  const deletePreviewQuestion = (index) => {
+    setAiPreview(prev => prev.filter((_, i) => i !== index))
   }
 
   const confirmAiQuestions = () => {
@@ -208,7 +216,7 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
         <button
           className={`${styles.aiModeBtn} ${aiMode === 'document' ? styles.aiModeBtnActive : ''}`}
           onClick={switchToDocumentMode}>
-          📄 From Document
+          📄 Upload Document (RAG)
         </button>
       </div>
 
@@ -222,7 +230,7 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
               type="text"
               value={aiFields.topic}
               onChange={e => setAiFields({ ...aiFields, topic: e.target.value })}
-              placeholder="e.g., World War 2, Photosynthesis, Python loops"
+              placeholder="e.g., Python Basics, World War II, React Hooks"
               disabled={isGenerating} />
           </div>
 
@@ -242,16 +250,14 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
 
             <div className={`${styles.formGroup} ${styles.flexColumn}`}>
               <label className={styles.label}>Number of Questions</label>
-              <select
-                className={styles.select}
+              <input
+                className={styles.input}
+                type="number"
+                min="1"
+                max="20"
                 value={aiFields.count}
-                onChange={e => setAiFields({ ...aiFields, count: parseInt(e.target.value) })}
-                disabled={isGenerating}>
-                <option value={3}>3 Questions</option>
-                <option value={5}>5 Questions</option>
-                <option value={10}>10 Questions</option>
-                <option value={15}>15 Questions</option>
-              </select>
+                onChange={e => setAiFields({ ...aiFields, count: parseInt(e.target.value) || 5 })}
+                disabled={isGenerating} />
             </div>
           </div>
         </div>
@@ -260,13 +266,12 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
       {/* Prompt mode */}
       {aiMode === 'prompt' && (
         <div className={styles.formGroup}>
-          <label className={styles.label}>Custom Prompt</label>
-
+          <label className={styles.label}>Prompt</label>
           <textarea
             className={styles.textarea}
             value={aiPrompt}
             onChange={e => setAiPrompt(e.target.value)}
-            placeholder="e.g., Generate 10 hard questions about React hooks, useState and useEffect with real-world examples"
+            placeholder="e.g., Generate 5 medium questions about machine learning focusing on supervised vs unsupervised learning."
             disabled={isGenerating}
             rows="4" />
 
@@ -363,7 +368,7 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
               <button
                 className={`${styles.btn} ${styles.btnSuccess}`}
                 onClick={confirmAiQuestions}>
-                ✓ Add All to Quiz
+                ✓ Add All ({aiPreview.length}) to Draft
               </button>
 
               <button
@@ -376,7 +381,16 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
 
           {aiPreview.map((q, i) => (
             <div key={i} className={styles.aiPreviewCard}>
-              <div className={styles.questionHeader}>Question {i + 1}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div className={styles.questionHeader}>Question {i + 1}</div>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnDanger}`}
+                  style={{ padding: '3px 8px', fontSize: '11px' }}
+                  onClick={() => deletePreviewQuestion(i)}>
+                  ✕ Remove
+                </button>
+              </div>
               <div className={styles.questionText}>{q.question}</div>
 
               <div className={styles.optionList}>
@@ -395,7 +409,7 @@ export default function AIGenerator({ onConfirm, isSubmitting }) {
             <button
               className={`${styles.btn} ${styles.btnSuccess}`}
               onClick={confirmAiQuestions}>
-              ✓ Add All to Quiz
+              ✓ Add All ({aiPreview.length}) to Draft
             </button>
 
             <button

@@ -2,13 +2,21 @@
 import { useState } from 'react'
 import styles from '../../admin/page.module.css'
 
-export default function AdminQuizList({ quizzes, onDelete, isSubmitting }) {
+export default function AdminQuizList({ quizzes, onEdit, onDelete, isSubmitting }) {
   const [previewQuizId, setPreviewQuizId] = useState(null)
+  const [copiedId, setCopiedId] = useState(null)
 
   const getDifficultyClass = (diff) => {
     if (diff === 'easy') return styles.diffEasy
     if (diff === 'hard') return styles.diffHard
     return styles.diffMedium
+  }
+
+  const copyCode = (code, id) => {
+    if (!code) return
+    navigator.clipboard.writeText(code)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
   if (quizzes.length === 0) {
@@ -45,21 +53,52 @@ export default function AdminQuizList({ quizzes, onDelete, isSubmitting }) {
                   type="button"
                   className={`${styles.btn} ${styles.btnSecondary}`}
                   onClick={() => setPreviewQuizId(isPreviewing ? null : quiz._id)}>
-                  {isPreviewing ? 'Hide Questions' : `👁️ Preview (${quiz.questions?.length || 0})`}
+                  {isPreviewing ? 'Hide' : `Preview (${quiz.questions?.length || 0})`}
                 </button>
+                {onEdit && (
+                  <button
+                    type="button"
+                    className={`${styles.btn} ${styles.btnPrimary}`}
+                    onClick={() => onEdit(quiz)}
+                    disabled={isSubmitting}>
+                    Edit
+                  </button>
+                )}
                 <button
                   type="button"
                   className={`${styles.btn} ${styles.btnDanger}`}
                   onClick={() => onDelete(quiz._id, quiz.title)}
                   disabled={isSubmitting}>
-                  🗑️ Delete
+                  Delete
                 </button>
               </div>
             </div>
 
             <div className={styles.quizBadgeRow}>
+              {quiz.quizCode && (
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'var(--purple-12)',
+                  padding: '2.5px 8px',
+                  borderRadius: 'var(--radius-xs)',
+                  border: '1px solid var(--purple-25)',
+                }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--primary-200)', fontFamily: 'monospace' }}>
+                    CODE: {quiz.quizCode}
+                  </span>
+                  <button
+                    type="button"
+                    style={{ background: 'none', border: 'none', color: 'var(--primary-300)', cursor: 'pointer', fontSize: '10.5px', fontWeight: 600, padding: '0 2px' }}
+                    onClick={() => copyCode(quiz.quizCode, quiz._id)}>
+                    {copiedId === quiz._id ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              )}
+
               <span className={styles.metaBadge}>
-                📁 {quiz.category || 'General'}
+                {quiz.category || 'General'}
               </span>
 
               <span className={`${styles.metaBadge} ${getDifficultyClass(quiz.difficulty)}`}>
@@ -67,24 +106,26 @@ export default function AdminQuizList({ quizzes, onDelete, isSubmitting }) {
               </span>
 
               <span className={styles.metaBadge}>
-                📝 {quiz.questions?.length || 0} Questions
+                {quiz.questions?.length || 0} Questions
               </span>
 
               <span className={styles.metaBadge}>
-                {quiz.timerEnabled ? `⏰ ${quiz.timeLimit} mins` : '∞ No Timer'}
+                {quiz.timerEnabled ? `${quiz.timeLimit} mins` : 'No Timer'}
               </span>
 
-              {isPublicWithPasscode ? (
-                <span className={`${styles.metaBadge} ${styles.accessPasscode}`}>
-                  🔒 Passcode: {quiz.passcode || 'Required'}
-                </span>
-              ) : isPublicNoPasscode ? (
+              {quiz.isPublic ? (
                 <span className={`${styles.metaBadge} ${styles.accessPublic}`}>
-                  🌐 Public Play
+                  Public Feed
                 </span>
               ) : (
                 <span className={`${styles.metaBadge} ${styles.accessPrivate}`}>
-                  🎓 Students Only
+                  Private (Code Only)
+                </span>
+              )}
+
+              {quiz.isPublic && (quiz.passcode || quiz.hasPasscode) && (
+                <span className={`${styles.metaBadge} ${styles.accessPasscode}`}>
+                  Passcode Protected
                 </span>
               )}
             </div>
@@ -98,21 +139,27 @@ export default function AdminQuizList({ quizzes, onDelete, isSubmitting }) {
             {isPreviewing && (
               <div className={styles.previewDrawer}>
                 <div className={styles.previewDrawerHeader}>
-                  <h4>Questions in this Quiz ({quiz.questions?.length || 0})</h4>
+                  <h4>Quiz Questions Preview ({quiz.questions?.length || 0})</h4>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Correct answer is highlighted in green
+                  </span>
                 </div>
 
-                <div className={styles.previewDrawerList}>
-                  {quiz.questions?.map((q, i) => (
-                    <div key={q._id || i} className={styles.previewQuestionCard}>
-                      <div className={styles.questionHeader}>Question {i + 1}</div>
-                      <div className={styles.questionText}>{q.question}</div>
-                      <div className={styles.optionList}>
-                        {q.options?.map((opt, j) => (
+                <div className={styles.previewQuestionList}>
+                  {(quiz.questions || []).map((q, idx) => (
+                    <div key={idx} className={styles.previewQuestionCard}>
+                      <div className={styles.previewQuestionNumber}>Question {idx + 1}</div>
+                      <div className={styles.previewQuestionTitle}>{q.question}</div>
+                      <div className={styles.previewOptionsGrid}>
+                        {(q.options || []).map((opt, optIdx) => (
                           <div
-                            key={j}
-                            className={`${styles.optionItem} ${q.correctAnswer === j ? styles.correctOption : ''}`}>
-                            <span>{j + 1}.</span> {opt}
-                            {q.correctAnswer === j && <span className={styles.correctCheck}>✓ Correct</span>}
+                            key={optIdx}
+                            className={`${styles.previewOption} ${q.correctAnswer === optIdx ? styles.previewOptionCorrect : ''}`}>
+                            <span className={styles.previewOptionLetter}>
+                              {String.fromCharCode(65 + optIdx)}
+                            </span>
+                            <span>{opt}</span>
+                            {q.correctAnswer === optIdx && <span className={styles.previewCorrectBadge}>✓ Correct</span>}
                           </div>
                         ))}
                       </div>
@@ -121,7 +168,6 @@ export default function AdminQuizList({ quizzes, onDelete, isSubmitting }) {
                 </div>
               </div>
             )}
-
           </div>
         )
       })}

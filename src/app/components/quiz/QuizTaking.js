@@ -1,25 +1,6 @@
 'use client'
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import styles from '../../student/page.module.css'
-
-// Quiz taking interface with options, timer, progress bar, dots nav,
-// and keyboard navigation support (1-4, Arrow Left/Right).
-// Props:
-//   quiz                 — selected quiz object (with shuffled questions)
-//   currentQuestionIndex — which question is active
-//   answers              — { questionId: selectedOptionIndex }
-//   timeLeft             — seconds remaining (null if no timer)
-//   timeExpired          — boolean
-//   isSubmitting         — boolean
-//   showTabWarning       — boolean
-//   tabSwitchCount       — number
-//   onAnswer             — (questionId, optionIndex) => void
-//   onNext               — () => void
-//   onPrev               — () => void
-//   onNavigateTo         — (index) => void
-//   onSubmit             — () => void
-//   onExit               — () => void
-//   onDismissWarning     — () => void
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D', 'E', 'F']
 
@@ -40,24 +21,47 @@ export default function QuizTaking({
   onExit,
   onDismissWarning,
 }) {
-  const currentQuestion = quiz?.questions?.[currentQuestionIndex]
+  const [flagged, setFlagged] = useState({})
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
 
+  const currentQuestion = quiz?.questions?.[currentQuestionIndex]
   const questionId = currentQuestion?._id || currentQuestion?.id || currentQuestionIndex.toString()
   const progress = quiz?.questions?.length ? ((currentQuestionIndex + 1) / quiz.questions.length) * 100 : 0
   const answeredCount = Object.keys(answers).length
   const remainingCount = (quiz?.questions?.length || 0) - answeredCount
 
-  // ── Keyboard Shortcuts (1-4 / A-D and Arrow Keys) ──
+  const toggleFlag = (qid) => {
+    setFlagged(prev => ({ ...prev, [qid]: !prev[qid] }))
+  }
+
+  const handleOpenConfirm = () => {
+    setShowConfirmModal(true)
+  }
+
+  const handleFinalSubmit = () => {
+    setShowConfirmModal(false)
+    onSubmit()
+  }
+
+  const handleJumpToUnanswered = () => {
+    setShowConfirmModal(false)
+    const firstUnansweredIndex = quiz.questions.findIndex((q, i) => {
+      const qid = q._id || q.id || i.toString()
+      return answers[qid] === undefined
+    })
+    if (firstUnansweredIndex !== -1) {
+      onNavigateTo(firstUnansweredIndex)
+    }
+  }
+
   useEffect(() => {
     if (!currentQuestion || isSubmitting || timeExpired) return
 
     const handleKeyDown = (e) => {
-      // Don't intercept if user is in an input or textarea
       if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return
 
       const key = e.key.toLowerCase()
 
-      // Option selection by 1-4 or a-d
       if (['1', '2', '3', '4'].includes(key)) {
         const optIdx = parseInt(key, 10) - 1
         if (optIdx < (currentQuestion.options?.length || 0)) {
@@ -76,6 +80,8 @@ export default function QuizTaking({
         if (currentQuestionIndex > 0) {
           onPrev()
         }
+      } else if (key === 'f') {
+        toggleFlag(questionId)
       }
     }
 
@@ -154,15 +160,20 @@ export default function QuizTaking({
       <div className={styles.dotsNav}>
         {quiz.questions.map((_, i) => {
           const qid = quiz.questions[i]._id || quiz.questions[i].id || i.toString()
+          const isFlagged = Boolean(flagged[qid])
+          const isAnswered = answers[qid] !== undefined
+
           return (
             <button
               key={i}
               className={`${styles.dot}
                 ${i === currentQuestionIndex ? styles.dotCurrent : ''}
-                ${answers[qid] !== undefined && i !== currentQuestionIndex ? styles.dotAnswered : ''}
+                ${isAnswered && i !== currentQuestionIndex ? styles.dotAnswered : ''}
+                ${isFlagged ? styles.dotFlagged : ''}
               `}
+              title={`Question ${i + 1}${isFlagged ? ' (Flagged)' : ''}${isAnswered ? ' (Answered)' : ''}`}
               onClick={() => !isSubmitting && !timeExpired && onNavigateTo(i)}>
-              {i + 1}
+              {isFlagged ? `🚩${i + 1}` : i + 1}
             </button>
           )
         })}
@@ -171,9 +182,18 @@ export default function QuizTaking({
       {/* Question card */}
       <div className={styles.questionCard}>
         <div className={styles.questionMeta}>
-          <span className={styles.questionNum}>
-            Question {currentQuestionIndex + 1} of {quiz.questions.length}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className={styles.questionNum}>
+              Question {currentQuestionIndex + 1} of {quiz.questions.length}
+            </span>
+            <button
+              type="button"
+              className={`${styles.flagBtn} ${flagged[questionId] ? styles.flagBtnActive : ''}`}
+              onClick={() => toggleFlag(questionId)}
+              title="Shortcut: Press 'F' to flag">
+              {flagged[questionId] ? '🚩 Flagged' : '🏳️ Flag for Review'}
+            </button>
+          </div>
           <div className={styles.questionTags}>
             <span className={`${styles.metaTag} ${getDifficultyTag(quiz.difficulty)}`}>
               {quiz.difficulty ? quiz.difficulty.toUpperCase() : 'MEDIUM'}
@@ -231,17 +251,61 @@ export default function QuizTaking({
         ) : (
           <button
             className={styles.btnSubmit}
-            onClick={onSubmit}
+            onClick={handleOpenConfirm}
             disabled={isSubmitting || timeExpired}>
             {isSubmitting ? '⏳ Submitting...' : '✓ Submit Quiz'}
           </button>
         )}
       </div>
 
-      {/* Keyboard Shortcut Hint Pill */}
       <div className={styles.keyboardHintPill}>
-        <span>⌨️ Shortcuts: Press <strong>1–4</strong> (or <strong>A–D</strong>) to select • <strong>← / →</strong> to navigate</span>
+        <span>⌨️ Shortcuts: <strong>1–4</strong> (or <strong>A–D</strong>) to select • <strong>← / →</strong> to navigate • <strong>F</strong> to flag</span>
       </div>
+
+      {showConfirmModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <div className={styles.modalTitle}>
+              {remainingCount > 0 ? '⚠️ Unanswered Questions' : 'Ready to Submit?'}
+            </div>
+            <div className={styles.modalText}>
+              {remainingCount > 0 ? (
+                <>
+                  You still have <strong>{remainingCount}</strong> unanswered question{remainingCount > 1 ? 's' : ''}.
+                  Unanswered questions will be scored as incorrect. Would you like to review them first?
+                </>
+              ) : (
+                <>
+                  You have answered all <strong>{quiz.questions.length}</strong> questions!
+                  Are you ready to finalize and view your score and explanations?
+                </>
+              )}
+            </div>
+            <div className={styles.modalActions}>
+              {remainingCount > 0 && (
+                <button
+                  type="button"
+                  className={styles.btnNav}
+                  onClick={handleJumpToUnanswered}>
+                  Review Unanswered
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.btnNav}
+                onClick={() => setShowConfirmModal(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.btnSubmit}
+                onClick={handleFinalSubmit}>
+                Submit Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

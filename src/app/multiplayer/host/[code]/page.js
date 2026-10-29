@@ -49,7 +49,10 @@ export default function HostRoomPage() {
     attemptRejoin();
     socket.on("connect", attemptRejoin);
 
-    fetch("/api/quizzes")
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    fetch("/api/quizzes", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((res) => res.json())
       .then((data) => setQuizzes(Array.isArray(data) ? data : data.quizzes || []))
       .catch(() => {});

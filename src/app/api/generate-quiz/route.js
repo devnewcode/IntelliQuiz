@@ -4,8 +4,10 @@ import { z } from 'zod'
 import { retrieveRelevantChunks } from '../../../lib/rag/retrieve'
 import SourceDocument from '../../../lib/models/SourceDocument'
 import dbConnect from '../../../lib/mongodb'
+import { verifyToken } from '../../../lib/auth'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite'
 
 const QuestionSchema = z.object({
   question: z.string().min(1, 'Question text is required'),
@@ -15,24 +17,24 @@ const QuestionSchema = z.object({
 
 const QuestionsArraySchema = z.array(QuestionSchema).min(1, 'At least one question is required')
 
-const RATE_LIMIT_MAX_REQUESTS = 5
+const RATE_LIMIT_MAX_REQUESTS = 10
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 
 const requestLog = new Map()
 
-function isRateLimited(ip) {
+function isRateLimited(identifier) {
   const now = Date.now()
-  const timestamps = requestLog.get(ip) || []
+  const timestamps = requestLog.get(identifier) || []
 
   const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS)
 
   if (recent.length >= RATE_LIMIT_MAX_REQUESTS) {
-    requestLog.set(ip, recent)
+    requestLog.set(identifier, recent)
     return true
   }
 
   recent.push(now)
-  requestLog.set(ip, recent)
+  requestLog.set(identifier, recent)
   return false
 }
 
@@ -42,7 +44,13 @@ function getClientIp(request) {
 }
 
 async function generateAndValidate(model, promptText) {
-  const result = await model.generateContent(promptText)
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: promptText }] }],
+    generationConfig: {
+      responseMimeType: 'application/json'
+    }
+  })
+
   const rawText = result.response.text()
   const cleaned = rawText.replace(/```json|```/g, '').trim()
 
@@ -68,10 +76,29 @@ async function generateAndValidate(model, promptText) {
 
 export async function POST(request) {
   try {
-    const ip = getClientIp(request)
-    if (isRateLimited(ip)) {
+    // ── Authentication Check ──
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
-        { message: 'Too many requests. Please wait a minute and try again.' },
+        { message: 'Authentication required to generate quizzes' },
+        { status: 401 }
+      )
+    }
+
+    const token = authHeader.split(' ')[1]
+    const decoded = verifyToken(token)
+
+    if (!decoded || (decoded.role !== 'admin' && decoded.role !== 'superadmin')) {
+      return NextResponse.json(
+        { message: 'Admin access required to generate quizzes' },
+        { status: 403 }
+      )
+    }
+
+    const ip = getClientIp(request)
+    if (isRateLimited(decoded.id || ip)) {
+      return NextResponse.json(
+        { message: 'Too many generation requests. Please wait a minute and try again.' },
         { status: 429 }
       )
     }
@@ -150,9 +177,9 @@ Rules:
 - correctAnswer is the index (0, 1, 2, or 3) of the correct option
 - Each question must have exactly 4 options
 - Questions should be clear and educational`
-      : `Generate EXACTLY ${count} multiple choice quiz questions about "${topic}" with ${difficulty} difficulty.
+      : `Generate EXACTLY ${count || 5} multiple choice quiz questions about "${topic || 'General Knowledge'}" with ${difficulty || 'medium'} difficulty.
 
-IMPORTANT: You MUST return EXACTLY ${count} questions — no more, no less. Count them before responding.
+IMPORTANT: You MUST return EXACTLY ${count || 5} questions — no more, no less. Count them before responding.
 
 Return ONLY a valid JSON array, no extra text, no markdown, no explanation.
 Format:
@@ -168,9 +195,9 @@ Rules:
 - correctAnswer is the index (0, 1, 2, or 3) of the correct option
 - Each question must have exactly 4 options
 - Questions should be clear and educational
-- Difficulty: ${difficulty}`
+- Difficulty: ${difficulty || 'medium'}`
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL })
 
     let attempt = await generateAndValidate(model, fullPrompt)
 

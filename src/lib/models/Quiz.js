@@ -62,8 +62,21 @@ const QuizSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  isPublic: {type: Boolean, default: false},
-  passcode: {type: String, default: ''}
+  isPublic: {
+    type: Boolean,
+    default: false
+  },
+  quizCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+    uppercase: true
+  },
+  passcode: {
+    type: String,
+    default: ''
+  }
 })
 
 export default mongoose.models.Quiz || mongoose.model('Quiz', QuizSchema)

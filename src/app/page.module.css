@@ -121,9 +121,9 @@
 
 /* ── Welcome Screen Card (WelcomeScreen.js) ── */
 .welcomeSection {
-  max-width: 720px;
-  margin: 64px auto;
-  padding: 0 24px;
+  max-width: 640px;
+  margin: 48px auto;
+  padding: 0 20px;
 }
 
 .welcomeCard {
@@ -131,24 +131,23 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-2xl);
-  padding: 52px 40px;
+  border-radius: var(--radius-xl);
+  padding: 32px 28px;
   text-align: center;
-  box-shadow: var(--shadow-xl), var(--shadow-purple-glow);
-  animation: slideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .celebrationIcon {
-  font-size: 64px;
-  margin-bottom: 20px;
-  animation: float 3s ease-in-out infinite;
+  font-size: 44px;
+  margin-bottom: 14px;
 }
 
 .welcomeTitle {
-  font-size: 28px;
-  font-weight: 800;
-  margin: 0 0 12px;
-  letter-spacing: -0.5px;
+  font-size: 21px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
   background: var(--grad-text);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -156,10 +155,10 @@
 }
 
 .welcomeSubtitle {
-  font-size: 15.5px;
+  font-size: 14px;
   color: var(--text-muted);
-  margin: 0 0 36px;
-  line-height: 1.6;
+  margin: 0 0 24px;
+  line-height: 1.5;
 }
 .welcomeSubtitle strong {
   color: var(--primary-300);
@@ -167,24 +166,24 @@
 
 /* ── Dashboard Shell (AdminHome.js) ── */
 .dashboardSection {
-  max-width: 720px;
-  margin: 64px auto;
-  padding: 0 24px;
+  max-width: 640px;
+  margin: 48px auto;
+  padding: 0 20px;
   text-align: center;
 }
 
 .dashboardSection h2 {
-  font-size: 28px;
-  font-weight: 800;
+  font-size: 21px;
+  font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 8px;
-  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
 }
 
 .roleText {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text-muted);
-  margin-bottom: 36px;
+  margin-bottom: 24px;
 }
 .roleText strong {
   color: var(--primary-300);
@@ -192,94 +191,97 @@
 
 .actionButtons {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   justify-content: center;
   flex-wrap: wrap;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 .primaryBtn {
-  padding: 13px 28px;
-  background: var(--grad-primary);
+  padding: 8px 18px;
+  background: var(--primary-600);
   color: #ffffff;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 15px;
-  font-weight: 700;
+  border: 1px solid var(--primary-500);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  box-shadow: var(--shadow-btn);
-  transition: all var(--tr-fast);
-}
-.primaryBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-btn-hover);
-  filter: brightness(1.08);
-}
-
-.secondaryBtn {
-  padding: 13px 28px;
-  background: var(--purple-12);
-  color: var(--primary-300);
-  border: 1.5px solid var(--purple-35);
-  border-radius: var(--radius-md);
-  font-size: 15px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  transition: all var(--tr-fast);
-}
-.secondaryBtn:hover {
-  background: var(--purple-18);
-  border-color: var(--primary-400);
-  color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(109, 40, 217, 0.2);
-}
-
-.btnIcon {
-  font-size: 18px;
-}
-
-.continueBtn {
-  padding: 13px 36px;
-  background: var(--grad-success);
-  color: #ffffff;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 15px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);
-  transition: all var(--tr-fast);
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-top: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--tr-fast);
+}
+.primaryBtn:hover {
+  background: var(--primary-500);
+  transform: translateY(-1px);
+}
+
+.secondaryBtn {
+  padding: 8px 18px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all var(--tr-fast);
+}
+.secondaryBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.btnIcon {
+  font-size: 16px;
+}
+
+.continueBtn {
+  padding: 8px 22px;
+  background: #059669;
+  color: #ffffff;
+  border: 1px solid #10b981;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--tr-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
 }
 .continueBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.5);
-  filter: brightness(1.08);
+  background: #10b981;
+  transform: translateY(-1px);
 }
 
 /* ── Mobile Responsive ── */
 @media (max-width: 640px) {
   .welcomeCard {
-    padding: 36px 20px;
+    padding: 24px 18px;
+    border-radius: var(--radius-lg);
   }
   .welcomeTitle {
-    font-size: 23px;
+    font-size: 19px;
+  }
+  .welcomeSubtitle {
+    font-size: 13px;
+    margin-bottom: 18px;
   }
   .actionButtons {
     flex-direction: column;
+    gap: 8px;
   }
   .primaryBtn,
   .secondaryBtn {
@@ -288,6 +290,11 @@
   }
   .navContent {
     flex-direction: column;
-    text-align: center;
+    gap: 10px;
+    padding: 0 16px;
+  }
+  .userInfo {
+    width: 100%;
+    justify-content: space-between;
   }
 }

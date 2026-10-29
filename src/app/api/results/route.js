@@ -1,8 +1,3 @@
-// FILE LOCATION: src/app/api/results/route.js
-// (replaces your existing file — GET handler is UNCHANGED. POST now uses
-// the shared, tested gradeQuiz() function instead of repeating the same
-// logic inline.)
-
 import { NextResponse } from 'next/server'
 import dbConnect from '../../../lib/mongodb'
 import Result from '../../../lib/models/Result'
@@ -33,24 +28,41 @@ export async function GET(request) {
     await dbConnect()
 
     let results
+    let adminQuizzes = []
+
     if (decoded.role === 'superadmin') {
       results = await Result.find({})
-        .populate('quiz', 'title')
+        .populate('quiz', 'title quizCode category difficulty isPublic')
         .populate('user', 'name username email')
         .sort({ completedAt: -1 })
+
+      adminQuizzes = await Quiz.find({ isActive: true })
+        .select('title quizCode category difficulty createdAt isPublic')
+        .sort({ createdAt: -1 })
+
     } else if (decoded.role === 'admin') {
-      const adminQuizIds = await Quiz.find({ createdBy: decoded.id }).distinct('_id')
+      const adminQuizDocs = await Quiz.find({ createdBy: decoded.id, isActive: true })
+        .select('title quizCode category difficulty createdAt isPublic')
+        .sort({ createdAt: -1 })
+
+      adminQuizzes = adminQuizDocs
+      const adminQuizIds = adminQuizDocs.map(q => q._id)
+
       results = await Result.find({ quiz: { $in: adminQuizIds } })
-        .populate('quiz', 'title')
+        .populate('quiz', 'title quizCode category difficulty isPublic')
         .populate('user', 'name username email')
         .sort({ completedAt: -1 })
+
     } else {
       results = await Result.find({ user: decoded.id })
-        .populate('quiz', 'title')
+        .populate('quiz', 'title quizCode category difficulty isPublic')
         .sort({ completedAt: -1 })
     }
 
-    return NextResponse.json({ results })
+    return NextResponse.json({
+      results,
+      quizzes: adminQuizzes
+    })
   } catch (error) {
     console.error('Get results error:', error)
     return NextResponse.json(
@@ -85,7 +97,7 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Quiz not found' }, { status: 404 })
     }
 
-    // All the actual grading logic now lives in one tested place: scoring.js
+    // All grading logic lives in scoring.js
     const { score, correctCount, totalQuestions, review } = gradeQuiz(quiz.questions, answers)
 
     const resultDoc = await Result.create({

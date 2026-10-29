@@ -15,6 +15,36 @@ export default function QuizList({ quizzes = [], onStartQuiz, user, onGoHome, on
   const [searchQuery, setSearchQuery] = useState('')
   const [filterDifficulty, setFilterDifficulty] = useState('all')
 
+  // Code unlock state
+  const [quizCodeInput, setQuizCodeInput] = useState('')
+  const [isUnlockingCode, setIsUnlockingCode] = useState(false)
+  const [codeError, setCodeError] = useState('')
+
+  const handleUnlockCode = async (e) => {
+    e.preventDefault()
+    const clean = quizCodeInput.trim().toUpperCase()
+    if (!clean) return
+    setIsUnlockingCode(true)
+    setCodeError('')
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`/api/quizzes/by-code/${encodeURIComponent(clean)}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
+      const data = await res.json()
+      if (res.ok && data.quiz) {
+        onStartQuiz(data.quiz)
+      } else {
+        setCodeError(data.message || `No quiz found with code "${clean}"`)
+      }
+    } catch (err) {
+      console.error(err)
+      setCodeError('Failed to unlock quiz. Please try again.')
+    } finally {
+      setIsUnlockingCode(false)
+    }
+  }
+
   const getDifficultyTag = (d) => {
     if (d === 'easy') return styles.metaTagGreen
     if (d === 'hard') return styles.metaTagRed
@@ -37,7 +67,21 @@ export default function QuizList({ quizzes = [], onStartQuiz, user, onGoHome, on
       {/* Nav */}
       <div className={styles.nav}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '24px' }}>🎓</span>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 30,
+            height: 30,
+            borderRadius: 7,
+            background: 'var(--grad-primary)',
+            color: '#fff'
+          }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+              <path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/>
+            </svg>
+          </div>
           <div>
             <h1 className={styles.navTitle} style={{ fontSize: '18px', margin: 0 }}>IntelliQuiz</h1>
             <span style={{ fontSize: '11.5px', color: 'var(--primary-300)', fontWeight: 600 }}>Available Quizzes</span>
@@ -50,11 +94,44 @@ export default function QuizList({ quizzes = [], onStartQuiz, user, onGoHome, on
         </div>
       </div>
 
+      {/* ── Join Private Quiz by Code ── */}
+      <div className={styles.codeUnlockBar}>
+        <div className={styles.codeUnlockText}>
+          <span>Have a Private Quiz Code?</span>
+        </div>
+        <form onSubmit={handleUnlockCode} className={styles.codeUnlockForm}>
+          <input
+            type="text"
+            placeholder="Enter Code (e.g. IYF-GITA)"
+            value={quizCodeInput}
+            onChange={e => setQuizCodeInput(e.target.value.toUpperCase())}
+            className={styles.codeUnlockInput}
+            maxLength={12}
+          />
+          <button
+            type="submit"
+            disabled={isUnlockingCode || !quizCodeInput.trim()}
+            className={styles.codeUnlockBtn}>
+            {isUnlockingCode ? 'Checking…' : 'Unlock & Start →'}
+          </button>
+        </form>
+      </div>
+      {codeError && (
+        <div className={styles.codeAlertError}>
+          {codeError}
+        </div>
+      )}
+
       {/* Search & Filter Bar (shown when quizzes exist) */}
       {quizzes.length > 0 && (
         <div className={styles.filterSection}>
           <div className={styles.searchBox}>
-            <span className={styles.searchIcon}>🔍</span>
+            <span className={styles.searchIcon}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </span>
             <input
               type="text"
               placeholder="Search by quiz name or category..."
@@ -103,7 +180,6 @@ export default function QuizList({ quizzes = [], onStartQuiz, user, onGoHome, on
       {/* Empty States */}
       {quizzes.length === 0 ? (
         <div className={styles.emptyState}>
-          <div className={styles.emptyIcon}>📋</div>
           <div className={styles.emptyTitle}>No quizzes available yet</div>
           <div className={styles.emptyText}>
             Check back later — your admin will publish quizzes soon!
@@ -111,7 +187,6 @@ export default function QuizList({ quizzes = [], onStartQuiz, user, onGoHome, on
         </div>
       ) : filteredQuizzes.length === 0 ? (
         <div className={styles.emptyState}>
-          <div className={styles.emptyIcon}>🔍</div>
           <div className={styles.emptyTitle}>No matching quizzes found</div>
           <div className={styles.emptyText}>
             Try clearing your search query or changing the difficulty filter.
@@ -142,13 +217,13 @@ export default function QuizList({ quizzes = [], onStartQuiz, user, onGoHome, on
 
               <div className={styles.quizMeta}>
                 <span className={styles.metaTag}>
-                  📁 {quiz.category || 'General'}
+                  {quiz.category || 'General'}
                 </span>
                 <span className={styles.metaTag}>
-                  📝 {quiz.questions?.length || 0} questions
+                  {quiz.questions?.length || 0} questions
                 </span>
                 <span className={styles.metaTag}>
-                  {quiz.timerEnabled ? `⏰ ${quiz.timeLimit} min` : '∞ No timer'}
+                  {quiz.timerEnabled ? `${quiz.timeLimit} min` : 'No timer'}
                 </span>
               </div>
 

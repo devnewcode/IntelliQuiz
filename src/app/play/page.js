@@ -1,19 +1,18 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import styles from './page.module.css'
 import quizStyles from '../student/page.module.css'
 
 const OPTION_KEYS = ['A', 'B', 'C', 'D', 'E', 'F']
 
-// Public quiz play page with guest entry, keyboard shortcuts,
-// grade analytics, mistake-focused review, and account registration CTA.
-export default function PlayPage() {
+function PlayContent() {
+  const searchParams = useSearchParams()
+  const codeParam = searchParams ? searchParams.get('code') : ''
 
-  // screen state
   const [screen, setScreen] = useState('entry')
 
-  // guest info
   const [guestName, setGuestName] = useState('')
   const [guestEmail, setGuestEmail] = useState('')
   const [passcode, setPasscode] = useState('')
@@ -21,12 +20,15 @@ export default function PlayPage() {
   const [isCheckingPasscode, setIsCheckingPasscode] = useState(false)
   const [quizSearch, setQuizSearch] = useState('')
 
-  // public quizzes
+  const [codeInputValue, setCodeInputValue] = useState(codeParam || '')
+  const [codeQuiz, setCodeQuiz] = useState(null)
+  const [isFetchingCodeQuiz, setIsFetchingCodeQuiz] = useState(false)
+  const [codeError, setCodeError] = useState('')
+
   const [quizzes, setQuizzes] = useState([])
   const [selectedQuizId, setSelectedQuizId] = useState('')
   const [quizzesLoading, setQuizzesLoading] = useState(true)
 
-  // active quiz
   const [quiz, setQuiz] = useState(null)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState({})
@@ -36,7 +38,6 @@ export default function PlayPage() {
   const [timeExpired, setTimeExpired] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // results
   const [score, setScore] = useState(0)
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0)
   const [timeTaken, setTimeTaken] = useState(0)
@@ -45,15 +46,42 @@ export default function PlayPage() {
   const [isFetchingExplanations, setIsFetchingExplanations] = useState(false)
   const [reviewFilter, setReviewFilter] = useState('all')
 
-  // Keeps a live copy of answers for interval submit callback
   const answersRef = useRef({})
   useEffect(() => { answersRef.current = answers }, [answers])
 
-  // fetch quizzes on mount
   useEffect(() => {
     fetchPublicQuizzes()
     return () => { if (timerInterval) clearInterval(timerInterval) }
   }, [timerInterval])
+
+  useEffect(() => {
+    if (codeParam) {
+      loadQuizByCode(codeParam)
+    }
+  }, [codeParam])
+
+  const loadQuizByCode = async (codeToLoad) => {
+    const clean = (codeToLoad || '').trim().toUpperCase()
+    if (!clean) return
+    setIsFetchingCodeQuiz(true)
+    setCodeError('')
+    setEntryError('')
+    try {
+      const res = await fetch(`/api/quizzes/by-code/${encodeURIComponent(clean)}`)
+      const data = await res.json()
+      if (res.ok && data.quiz) {
+        setCodeQuiz(data.quiz)
+        setSelectedQuizId(data.quiz._id)
+      } else {
+        setCodeError(data.message || `No active quiz found with code "${clean}"`)
+      }
+    } catch (e) {
+      console.error('Failed to load quiz by code:', e)
+      setCodeError('Could not load quiz by code. Please try again.')
+    } finally {
+      setIsFetchingCodeQuiz(false)
+    }
+  }
 
   const fetchPublicQuizzes = async () => {
     try {
@@ -66,7 +94,11 @@ export default function PlayPage() {
     setQuizzesLoading(false)
   }
 
-  // ── Keyboard Shortcuts (1-4 / A-D and Arrow Keys) in Quiz Mode ──
+  const handleAnswer = useCallback((questionId, optionIndex) => {
+    if (isSubmitting || timeExpired) return
+    setAnswers(prev => ({ ...prev, [questionId]: optionIndex }))
+  }, [isSubmitting, timeExpired])
+
   useEffect(() => {
     if (screen !== 'quiz' || !quiz || isSubmitting || timeExpired) return
 
@@ -103,18 +135,19 @@ export default function PlayPage() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [screen, quiz, currentQuestionIndex, isSubmitting, timeExpired])
+  }, [screen, quiz, currentQuestionIndex, isSubmitting, timeExpired, handleAnswer])
 
-  // start (async — verifies passcode against server)
   const handleStart = async () => {
     setEntryError('')
 
     if (!guestName.trim()) { setEntryError('Please enter your full name'); return }
     if (!guestEmail.trim() || !guestEmail.includes('@')) { setEntryError('Please enter a valid email address'); return }
-    if (!selectedQuizId) { setEntryError('Please select a quiz to play'); return }
 
-    const selectedQuiz = quizzes.find(q => q._id === selectedQuizId)
-    if (!selectedQuiz) { setEntryError('Quiz not found'); return }
+    const selectedQuiz = (codeQuiz && codeQuiz._id === selectedQuizId)
+      ? codeQuiz
+      : quizzes.find(q => q._id === selectedQuizId)
+
+    if (!selectedQuiz) { setEntryError('Please select a quiz or enter a valid quiz code'); return }
 
     if (selectedQuiz.hasPasscode) {
       setIsCheckingPasscode(true)
@@ -181,10 +214,6 @@ export default function PlayPage() {
     }
   }
 
-  const handleAnswer = (questionId, optionIndex) => {
-    if (isSubmitting || timeExpired) return
-    setAnswers(prev => ({ ...prev, [questionId]: optionIndex }))
-  }
 
   const handleExit = () => {
     if (!window.confirm('Exit this quiz? Your progress will be lost.')) return
@@ -317,7 +346,12 @@ export default function PlayPage() {
         <div className={styles.entryCard}>
 
           <div className={styles.entryHeader}>
-            <div className={styles.entryLogo}>🎓</div>
+            <div className={styles.entryLogo}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                <path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/>
+              </svg>
+            </div>
             <h1 className={styles.entryTitle}>IntelliQuiz</h1>
             <p className={styles.entrySubtitle}>Play a public quiz — no account required</p>
           </div>
@@ -344,53 +378,112 @@ export default function PlayPage() {
                 placeholder="Enter your email" />
             </div>
 
-            <div className={styles.formGroup}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <label className={styles.label} style={{ margin: 0 }}>Select a Quiz</label>
-                {quizzes.length > 3 && (
-                  <input
-                    type="text"
-                    placeholder="Filter quizzes..."
-                    value={quizSearch}
-                    onChange={e => setQuizSearch(e.target.value)}
-                    className={styles.miniSearchInput}
-                  />
-                )}
-              </div>
-
-              {quizzesLoading ? (
-                <div className={styles.loadingText}>Loading quizzes...</div>
-              ) : quizzes.length === 0 ? (
-                <div className={styles.noQuizzes}>No public quizzes available right now.</div>
-              ) : (
-                <div className={styles.quizPickerList}>
-                  {filteredQuizzes.map(q => (
-                    <div
-                      key={q._id}
-                      className={`${styles.quizPickerItem} ${selectedQuizId === q._id ? styles.quizPickerSelected : ''}`}
-                      onClick={() => setSelectedQuizId(q._id)}>
-                      <div className={styles.quizPickerRadio}>
-                        {selectedQuizId === q._id && <div className={styles.quizPickerRadioDot} />}
-                      </div>
-                      <div className={styles.quizPickerInfo}>
-                        <div className={styles.quizPickerTitle}>{q.title}</div>
-                        <div className={styles.quizPickerMeta}>
-                          <span className={`${quizStyles.metaTag} ${getDifficultyTag(q.difficulty)}`}>
-                            {q.difficulty ? q.difficulty.toUpperCase() : 'MEDIUM'}
-                          </span>
-                          <span>📁 {q.category || 'General'}</span>
-                          <span>📝 {q.questions?.length || 0} Qs</span>
-                          <span>{q.timerEnabled ? `⏰ ${q.timeLimit} min` : '∞ No timer'}</span>
-                          {q.hasPasscode && <span className={styles.passcodeTag}>🔒 Passcode Required</span>}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+            {codeQuiz ? (
+              <div className={styles.codeUnlockedCard}>
+                <div className={styles.codeUnlockedInfo}>
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-300)', letterSpacing: '0.6px' }}>
+                    QUIZ UNLOCKED WITH CODE
+                  </div>
+                  <div className={styles.codeUnlockedTitle}>{codeQuiz.title}</div>
+                  <div className={styles.codeUnlockedMeta}>
+                    <span className={styles.quizCodePillSmall}>Code: {codeQuiz.quizCode}</span>
+                    <span>{codeQuiz.category || 'General'}</span>
+                    <span>{codeQuiz.questions?.length || 0} Questions</span>
+                    <span>{codeQuiz.timerEnabled ? `${codeQuiz.timeLimit} min` : 'No timer'}</span>
+                  </div>
                 </div>
-              )}
-            </div>
+                <button
+                  type="button"
+                  className={styles.clearCodeBtn}
+                  onClick={() => { setCodeQuiz(null); setSelectedQuizId(''); setCodeInputValue('') }}>
+                  Switch Quiz
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className={styles.codeEntryBox}>
+                  <label className={styles.label} style={{ margin: 0 }}>
+                    Have a Quiz Code? (Private / Team Quiz)
+                  </label>
+                  <div className={styles.codeEntryRow}>
+                    <input
+                      type="text"
+                      placeholder="e.g. IYF-GITA or X7K9P2"
+                      value={codeInputValue}
+                      onChange={e => setCodeInputValue(e.target.value.toUpperCase())}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          loadQuizByCode(codeInputValue)
+                        }
+                      }}
+                      className={styles.codeEntryInput}
+                      maxLength={12}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => loadQuizByCode(codeInputValue)}
+                      disabled={isFetchingCodeQuiz || !codeInputValue.trim()}
+                      className={styles.codeEntryBtn}>
+                      {isFetchingCodeQuiz ? 'Checking…' : 'Unlock →'}
+                    </button>
+                  </div>
+                  {codeError && (
+                    <div style={{ color: 'var(--error-text)', fontSize: '12px', fontWeight: 600 }}>
+                      {codeError}
+                    </div>
+                  )}
+                </div>
 
-            {selectedQuizId && quizzes.find(q => q._id === selectedQuizId)?.hasPasscode && (
+                <div className={styles.formGroup}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label className={styles.label} style={{ margin: 0 }}>Or Choose a Public Quiz</label>
+                    {quizzes.length > 3 && (
+                      <input
+                        type="text"
+                        placeholder="Filter quizzes..."
+                        value={quizSearch}
+                        onChange={e => setQuizSearch(e.target.value)}
+                        className={styles.miniSearchInput}
+                      />
+                    )}
+                  </div>
+
+                  {quizzesLoading ? (
+                    <div className={styles.loadingText}>Loading quizzes...</div>
+                  ) : quizzes.length === 0 ? (
+                    <div className={styles.noQuizzes}>No public quizzes available right now.</div>
+                  ) : (
+                    <div className={styles.quizPickerList}>
+                      {filteredQuizzes.map(q => (
+                        <div
+                          key={q._id}
+                          className={`${styles.quizPickerItem} ${selectedQuizId === q._id ? styles.quizPickerSelected : ''}`}
+                          onClick={() => setSelectedQuizId(q._id)}>
+                          <div className={styles.quizPickerRadio}>
+                            {selectedQuizId === q._id && <div className={styles.quizPickerRadioDot} />}
+                          </div>
+                          <div className={styles.quizPickerInfo}>
+                            <div className={styles.quizPickerTitle}>{q.title}</div>
+                            <div className={styles.quizPickerMeta}>
+                              <span className={`${quizStyles.metaTag} ${getDifficultyTag(q.difficulty)}`}>
+                                {q.difficulty ? q.difficulty.toUpperCase() : 'MEDIUM'}
+                              </span>
+                              <span>{q.category || 'General'}</span>
+                              <span>{q.questions?.length || 0} Qs</span>
+                              <span>{q.timerEnabled ? `${q.timeLimit} min` : 'No timer'}</span>
+                              {q.hasPasscode && <span className={styles.passcodeTag}>Passcode Required</span>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {Boolean(selectedQuizId && ((codeQuiz && codeQuiz._id === selectedQuizId ? codeQuiz : quizzes.find(q => q._id === selectedQuizId))?.hasPasscode)) && (
               <div className={styles.formGroup}>
                 <label className={styles.label}>Quiz Passcode</label>
                 <input
@@ -409,7 +502,7 @@ export default function PlayPage() {
             <button
               className={styles.startBtn}
               onClick={handleStart}
-              disabled={quizzesLoading || quizzes.length === 0 || isCheckingPasscode}>
+              disabled={!selectedQuizId || isCheckingPasscode}>
               {isCheckingPasscode ? 'Verifying Passcode…' : 'Start Quiz →'}
             </button>
 
@@ -425,9 +518,6 @@ export default function PlayPage() {
     )
   }
 
-  // ────────────────────────────────────────────────────────
-  // QUIZ SCREEN
-  // ────────────────────────────────────────────────────────
   if (screen === 'quiz' && quiz) {
     const currentQuestion = quiz.questions[currentQuestionIndex]
     const questionId = currentQuestion._id || currentQuestion.id || currentQuestionIndex.toString()
@@ -555,9 +645,6 @@ export default function PlayPage() {
     )
   }
 
-  // ────────────────────────────────────────────────────────
-  // RESULTS SCREEN
-  // ────────────────────────────────────────────────────────
   if (screen === 'results' && quiz) {
     const totalQuestions = quiz.questions?.length || 0
     const wrongAnswersCount = totalQuestions - correctAnswersCount
@@ -752,4 +839,16 @@ export default function PlayPage() {
   }
 
   return null
+}
+
+export default function PlayPage() {
+  return (
+    <Suspense fallback={
+      <div className={styles.page}>
+        <div style={{ color: 'var(--text-muted)', fontSize: '15px' }}>Loading Quiz Player...</div>
+      </div>
+    }>
+      <PlayContent />
+    </Suspense>
+  )
 }

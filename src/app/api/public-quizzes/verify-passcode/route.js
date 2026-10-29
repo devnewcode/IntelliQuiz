@@ -13,7 +13,7 @@ export async function POST(request) {
 
     await dbConnect()
 
-    const quiz = await Quiz.findOne({ _id: quizId, isActive: true, isPublic: true })
+    const quiz = await Quiz.findOne({ _id: quizId, isActive: true })
     if (!quiz) {
       return NextResponse.json({ message: 'Quiz not found' }, { status: 404 })
     }

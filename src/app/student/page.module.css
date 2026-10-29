@@ -2,12 +2,12 @@
 
 /* ── Container ── */
 .container {
-  max-width: 880px;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 32px 24px 80px;
+  padding: 24px 20px 60px;
   min-height: 100vh;
   color: var(--text-primary);
-  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* ── Navigation Bar ── */
@@ -19,20 +19,20 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-xl);
-  padding: 16px 24px;
-  margin-bottom: var(--space-lg);
-  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-lg);
+  padding: 12px 18px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
   flex-wrap: wrap;
   gap: var(--space-sm);
   transition: border-color var(--tr-normal), box-shadow var(--tr-normal);
 }
 
 .navTitle {
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 17px;
+  font-weight: 600;
   margin: 0;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.02em;
   background: var(--grad-text);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -42,30 +42,30 @@
 .navRight {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .navUser {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--primary-300);
-  padding: 6px 14px;
+  padding: 4px 10px;
   background: var(--purple-12);
-  border-radius: var(--radius-full);
-  font-size: 13px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
   border: 1px solid var(--purple-25);
   display: inline-flex;
   align-items: center;
 }
 
 .navBtn {
-  padding: 7px 16px;
-  border: 1px solid var(--purple-25);
-  border-radius: var(--radius-md);
-  background: var(--purple-08);
-  color: var(--primary-300);
-  font-size: 13px;
-  font-weight: 600;
+  padding: 6px 13px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
   transition: all var(--tr-fast);
@@ -74,9 +74,9 @@
   gap: 6px;
 }
 .navBtn:hover {
-  border-color: var(--primary-500);
-  background: var(--purple-18);
-  color: var(--primary-200);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
   transform: translateY(-1px);
 }
 
@@ -176,36 +176,38 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: var(--space-lg);
+  gap: 12px;
+  margin-bottom: 14px;
   flex-wrap: wrap;
   background: var(--bg-card);
-  padding: 14px 18px;
-  border-radius: var(--radius-xl);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-default);
 }
 
 .searchBox {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex: 1;
-  min-width: 240px;
+  min-width: 220px;
   background: var(--bg-input);
-  border: 1.5px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: 8px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
   transition: border-color var(--tr-fast), background var(--tr-fast);
 }
 .searchBox:focus-within {
   border-color: var(--border-focus);
   background: var(--bg-input-focus);
-  box-shadow: 0 0 0 3px var(--purple-18);
+  box-shadow: 0 0 0 2px var(--purple-18);
 }
 
 .searchIcon {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
 }
 
 .searchInput {
@@ -213,7 +215,7 @@
   background: transparent;
   border: none;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
   font-family: inherit;
   outline: none;
 }
@@ -226,9 +228,9 @@
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: var(--radius-full);
+  font-size: 12px;
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
 }
 .clearSearchBtn:hover {
   color: var(--text-primary);
@@ -236,31 +238,31 @@
 
 .filterPills {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 }
 
 .filterPill {
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border-default);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-dim);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   transition: all var(--tr-fast);
   font-family: inherit;
 }
 .filterPill:hover {
-  color: var(--primary-300);
-  border-color: var(--primary-500);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 .filterPillActive {
-  background: var(--grad-primary) !important;
+  background: var(--primary-600) !important;
   color: #ffffff !important;
-  border-color: transparent !important;
-  box-shadow: var(--shadow-btn);
+  border-color: var(--primary-500) !important;
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── Progress Bar ── */
@@ -324,6 +326,83 @@
   color: #ffffff !important;
   box-shadow: var(--shadow-btn);
   transform: scale(1.06);
+}
+.dotFlagged {
+  border-color: #f59e0b !important;
+  color: #fcd34d !important;
+  background: rgba(245, 158, 11, 0.16) !important;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.flagBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--tr-fast);
+}
+.flagBtn:hover {
+  border-color: #f59e0b;
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.08);
+}
+.flagBtnActive {
+  border-color: #f59e0b !important;
+  color: #fcd34d !important;
+  background: rgba(245, 158, 11, 0.18) !important;
+}
+
+/* ── Modal overlay for quiz submission confirmation ── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 20, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  animation: fadeIn 0.2s ease;
+}
+
+.modalContent {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: var(--shadow-modal);
+  animation: scaleUp 0.2s ease;
+}
+
+.modalTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.modalText {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.modalActions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 /* ── Question Card ── */
@@ -866,15 +945,15 @@
 .quizGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 18px;
-  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  gap: 12px;
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .quizCard {
   background: var(--bg-card);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-xl);
-  padding: 24px 26px;
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -888,14 +967,14 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 4px;
+  width: 3px;
   height: 100%;
-  background: var(--grad-primary);
+  background: var(--primary-500);
 }
 .quizCard:hover {
   border-color: var(--primary-500);
-  box-shadow: var(--shadow-md), var(--shadow-purple-glow);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .quizCardHeader {
@@ -903,60 +982,63 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .quizCardTitle {
-  font-size: 17.5px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.015em;
 }
 
 .quizCardDesc {
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--text-muted);
-  margin-bottom: var(--space-md);
-  line-height: 1.5;
+  margin-bottom: 10px;
+  line-height: 1.45;
   flex: 1;
 }
 
 .quizMeta {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
-  margin-bottom: var(--space-md);
+  margin-bottom: 12px;
 }
 
 .quizCardFooter {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 10px;
   margin-top: auto;
 }
 
 .startBtn {
-  width: 100%;
-  padding: 11px 20px;
-  background: var(--grad-primary);
+  width: auto;
+  padding: 6px 16px;
+  background: var(--primary-600);
   color: #ffffff;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 700;
+  border: 1px solid var(--primary-500);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
-  box-shadow: var(--shadow-btn);
+  box-shadow: var(--shadow-sm);
   transition: all var(--tr-fast);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }
 .startBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-btn-hover);
-  filter: brightness(1.08);
+  transform: translateY(-1px);
+  background: var(--primary-500);
+  border-color: var(--primary-400);
 }
 
 /* ── Empty State ── */
@@ -991,64 +1073,203 @@
   font-weight: 500;
 }
 
+/* ── Join Private Quiz by Code (Student Page) ── */
+.codeUnlockBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.codeUnlockText {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.codeUnlockForm {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  max-width: 380px;
+}
+
+.codeUnlockInput {
+  flex: 1;
+  padding: 6px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  outline: none;
+  transition: all var(--tr-fast);
+}
+
+.codeUnlockInput:focus {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 2px var(--purple-18);
+}
+
+.codeUnlockBtn {
+  padding: 6px 14px;
+  background: var(--primary-600);
+  color: #fff;
+  border: 1px solid var(--primary-500);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--tr-fast);
+}
+
+.codeUnlockBtn:hover:not(:disabled) {
+  background: var(--primary-500);
+  transform: translateY(-1px);
+}
+
+.codeAlertError {
+  margin-top: -12px;
+  margin-bottom: var(--space-md);
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  background: var(--error-bg);
+  color: var(--error-text);
+  border: 1px solid var(--error-border);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* ── Responsive Viewports ── */
 @media (max-width: 768px) {
   .container {
-    padding: 16px 14px 60px;
+    padding: 14px 12px 60px;
   }
   .nav {
-    padding: 14px 16px;
-    border-radius: var(--radius-lg);
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px;
+    gap: 10px;
+    border-radius: var(--radius-md);
   }
   .navTitle {
-    font-size: 18px;
+    font-size: 16.5px;
   }
   .navRight {
     width: 100%;
-    justify-content: space-between;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .navUser {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+    padding: 4px 8px;
+    font-size: 11.5px;
+    margin-bottom: 2px;
+  }
+  .navBtn {
+    flex: 1 1 auto;
+    text-align: center;
+    justify-content: center;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .codeUnlockBar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .codeUnlockForm {
+    width: 100%;
+    max-width: 100%;
   }
   .filterSection {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
+    padding: 8px 10px;
   }
   .searchBox {
     min-width: 100%;
+    width: 100%;
+  }
+  .filterPills {
+    width: 100%;
+    display: flex;
+    gap: 4px;
+  }
+  .filterPill {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    padding: 5px 6px;
+    font-size: 11.5px;
   }
   .quizGrid {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .quizCard {
+    padding: 14px 14px;
+    border-radius: var(--radius-md);
+  }
+  .quizCardFooter {
+    width: 100%;
+  }
+  .startBtn {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 14px;
   }
   .questionCard {
-    padding: 22px 18px 26px;
-    border-radius: var(--radius-xl);
+    padding: 16px 14px;
+    border-radius: var(--radius-lg);
   }
   .questionText {
-    font-size: 16px;
-    padding: 16px 18px;
+    font-size: 14.5px;
+    padding: 12px 14px;
   }
   .scoreBig {
-    font-size: 48px;
+    font-size: 40px;
   }
   .scoreCard {
-    padding: 32px 20px;
+    padding: 24px 16px;
   }
   .scoreStats {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
   .scoreStatVal {
-    font-size: 17px;
+    font-size: 16px;
   }
   .dotsNav {
-    gap: 6px;
+    gap: 4px;
   }
   .dot {
-    width: 32px;
-    height: 32px;
-    font-size: 12px;
+    width: 30px;
+    height: 30px;
+    font-size: 11.5px;
   }
   .quizNav {
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
   .btnNav,
   .btnSubmit {
@@ -1057,6 +1278,7 @@
   }
   .scoreActions {
     flex-direction: column;
+    gap: 8px;
   }
   .btnPrimary,
   .btnOutline {

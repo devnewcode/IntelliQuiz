@@ -328,6 +328,106 @@
   filter: brightness(1.08);
 }
 
+/* ── Quiz Code Entry in Play Page ── */
+.codeEntryBox {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.codeEntryRow {
+  display: flex;
+  gap: 8px;
+}
+
+.codeEntryInput {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  outline: none;
+}
+
+.codeEntryInput:focus {
+  border-color: var(--primary-500);
+}
+
+.codeEntryBtn {
+  padding: 10px 18px;
+  background: var(--grad-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--tr-fast);
+}
+
+.codeEntryBtn:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.codeUnlockedCard {
+  background: var(--purple-12);
+  border: 1.5px solid var(--primary-500);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.codeUnlockedInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.codeUnlockedTitle {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.codeUnlockedMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.clearCodeBtn {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.clearCodeBtn:hover {
+  border-color: var(--primary-500);
+  color: #fff;
+}
+
 @media (max-width: 640px) {
   .entryCard {
     border-radius: var(--radius-xl);

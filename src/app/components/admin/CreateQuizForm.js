@@ -36,7 +36,7 @@ export default function CreateQuizForm({ newQuiz, onChange, isSubmitting }) {
             type="text"
             value={newQuiz.category}
             onChange={e => onChange({ ...newQuiz, category: e.target.value })}
-            placeholder="e.g., Math, Science, History"
+            placeholder="e.g., General, Bhagavad Gita, Computer Science, HR"
             disabled={isSubmitting} />
         </div>
         <div className={`${styles.formGroup} ${styles.flexColumn}`}>
@@ -80,30 +80,110 @@ export default function CreateQuizForm({ newQuiz, onChange, isSubmitting }) {
         )}
       </div>
 
-      <div className={styles.flexRow}>
-        <div className={`${styles.formGroup} ${styles.flexColumn}`}>
-          <label className={styles.checkboxLabel}>
+      {/* ── Quiz Visibility & Access Code ── */}
+      <div style={{ marginTop: '16px', padding: '16px', background: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+        <label className={styles.label} style={{ marginBottom: '10px', display: 'block', fontSize: '13px' }}>
+          Quiz Access & Privacy Mode
+        </label>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+          <label style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px',
+            padding: '12px',
+            borderRadius: 'var(--radius-sm)',
+            border: `1px solid ${!newQuiz.isPublic ? 'var(--primary-500)' : 'var(--border-subtle)'}`,
+            background: !newQuiz.isPublic ? 'var(--purple-12)' : 'transparent',
+            cursor: 'pointer'
+          }}>
             <input
-              className={styles.checkbox}
-              type="checkbox"
-              checked={newQuiz.isPublic || false}
-              onChange={e => onChange({ ...newQuiz, isPublic: e.target.checked })}
-              disabled={isSubmitting} />
-            Allow Public Play (no login required)
+              type="radio"
+              name="quizAccessMode"
+              checked={!newQuiz.isPublic}
+              onChange={() => onChange({ ...newQuiz, isPublic: false })}
+              disabled={isSubmitting}
+            />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)' }}>
+                Private (Code-Only)
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Hidden from public lists. Only people with your Quiz Code can see and play it.
+              </div>
+            </div>
+          </label>
+
+          <label style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px',
+            padding: '12px',
+            borderRadius: 'var(--radius-sm)',
+            border: `1px solid ${newQuiz.isPublic ? 'var(--primary-500)' : 'var(--border-subtle)'}`,
+            background: newQuiz.isPublic ? 'var(--purple-12)' : 'transparent',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="radio"
+              name="quizAccessMode"
+              checked={newQuiz.isPublic}
+              onChange={() => onChange({ ...newQuiz, isPublic: true })}
+              disabled={isSubmitting}
+            />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)' }}>
+                Public & Open
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Visible on public quizzes page. Anyone can browse and take it.
+              </div>
+            </div>
           </label>
         </div>
-        {newQuiz.isPublic && (
+
+        <div className={styles.flexRow}>
           <div className={`${styles.formGroup} ${styles.flexColumn}`}>
-            <label className={styles.label}>Passcode (optional)</label>
-            <input
-              className={styles.input}
-              type="text"
-              value={newQuiz.passcode || ''}
-              onChange={e => onChange({ ...newQuiz, passcode: e.target.value })}
-              placeholder="Leave blank for no passcode"
-              disabled={isSubmitting} />
+            <label className={styles.label}>
+              Quiz Code {!newQuiz.isPublic && <span style={{ color: 'var(--primary-400)' }}>(Share with players)</span>}
+            </label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                className={styles.input}
+                type="text"
+                value={newQuiz.quizCode || ''}
+                onChange={e => onChange({ ...newQuiz, quizCode: e.target.value.toUpperCase() })}
+                placeholder="e.g. IYF-GITA or click Auto"
+                disabled={isSubmitting}
+                style={{ fontFamily: 'monospace', letterSpacing: '1px', fontWeight: 700 }}
+              />
+              <button
+                type="button"
+                className={`${styles.btn} ${styles.btnSecondary}`}
+                style={{ whiteSpace: 'nowrap', padding: '0 14px', fontSize: '12px' }}
+                onClick={() => onChange({ ...newQuiz, quizCode: Math.random().toString(36).substring(2, 8).toUpperCase() })}>
+                Generate Code
+              </button>
+            </div>
+            <span className={styles.inputHint}>
+              Players enter this code on the home screen or play page to launch this quiz.
+            </span>
           </div>
-        )}
+
+          {newQuiz.isPublic && (
+            <div className={`${styles.formGroup} ${styles.flexColumn}`}>
+              <label className={styles.label}>Passcode (Optional)</label>
+              <input
+                className={styles.input}
+                type="text"
+                value={newQuiz.passcode || ''}
+                onChange={e => onChange({ ...newQuiz, passcode: e.target.value })}
+                placeholder="Leave blank for open access"
+                disabled={isSubmitting}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

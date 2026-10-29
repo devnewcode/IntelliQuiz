@@ -20,6 +20,11 @@ export default function AdminHome({ user }) {
           {user.role === 'superadmin' ? 'Super Admin Panel' : 'Admin Panel'}
         </button>
         <button
+          onClick={() => router.push('/multiplayer/host')}
+          className={styles.secondaryBtn}>
+          <span className={styles.btnIcon}>👑</span> Host Live Game
+        </button>
+        <button
           onClick={() => router.push('/results')}
           className={styles.secondaryBtn}>
           <span className={styles.btnIcon}>📊</span> View All Results

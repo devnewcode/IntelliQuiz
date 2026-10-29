@@ -9,6 +9,7 @@ import StudentResults from '../components/results/StudentResults'
 export default function Results() {
   const { user, loading } = useAuth()
   const [results, setResults] = useState([])
+  const [quizzes, setQuizzes] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
@@ -28,7 +29,10 @@ export default function Results() {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await response.json()
-      if (response.ok) setResults(data.results || [])
+      if (response.ok) {
+        setResults(data.results || [])
+        setQuizzes(data.quizzes || [])
+      }
     } catch (error) {
       console.error('Failed to fetch results:', error)
     } finally {
@@ -111,7 +115,21 @@ export default function Results() {
     <div className={styles.container}>
       <div className={styles.nav}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '24px' }}>🎓</span>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 30,
+            height: 30,
+            borderRadius: 7,
+            background: 'var(--grad-primary)',
+            color: '#fff'
+          }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+              <path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/>
+            </svg>
+          </div>
           <div>
             <h1 className={styles.headerTitle} style={{ fontSize: '18px', margin: 0 }}>IntelliQuiz</h1>
             <span style={{ fontSize: '11.5px', color: 'var(--primary-300)', fontWeight: 600 }}>
@@ -134,7 +152,7 @@ export default function Results() {
           )}
           {isAdminRole(user.role) && results.length > 0 && (
             <button onClick={exportToCSV} className={styles.navBtn}>
-              ⬇ Export CSV
+              Export All (CSV)
             </button>
           )}
         </div>
@@ -144,6 +162,7 @@ export default function Results() {
         {isAdminRole(user.role) ? (
           <AdminResults
             results={results}
+            quizzes={quizzes}
             getScoreColor={getScoreColor}
             getScoreEmoji={getScoreEmoji}
           />
