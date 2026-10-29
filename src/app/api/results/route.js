@@ -32,24 +32,24 @@ export async function GET(request) {
 
     if (decoded.role === 'superadmin') {
       results = await Result.find({})
-        .populate('quiz', 'title quizCode category difficulty isPublic')
+        .populate('quiz', 'title quizCode category difficulty isPublic questions')
         .populate('user', 'name username email')
         .sort({ completedAt: -1 })
 
       adminQuizzes = await Quiz.find({ isActive: true })
-        .select('title quizCode category difficulty createdAt isPublic')
+        .select('title quizCode category difficulty createdAt isPublic questions')
         .sort({ createdAt: -1 })
 
     } else if (decoded.role === 'admin') {
       const adminQuizDocs = await Quiz.find({ createdBy: decoded.id, isActive: true })
-        .select('title quizCode category difficulty createdAt isPublic')
+        .select('title quizCode category difficulty createdAt isPublic questions')
         .sort({ createdAt: -1 })
 
       adminQuizzes = adminQuizDocs
       const adminQuizIds = adminQuizDocs.map(q => q._id)
 
       results = await Result.find({ quiz: { $in: adminQuizIds } })
-        .populate('quiz', 'title quizCode category difficulty isPublic')
+        .populate('quiz', 'title quizCode category difficulty isPublic questions')
         .populate('user', 'name username email')
         .sort({ completedAt: -1 })
 

@@ -1,5 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+
+const OPTION_KEYS = ['A', 'B', 'C', 'D', 'E', 'F']
 import styles from '../../results/page.module.css'
 
 export default function AdminResults({
@@ -18,6 +20,37 @@ export default function AdminResults({
   // State for "By Participant" view
   const [studentFilter, setStudentFilter] = useState('all')
   const [expandedStudent, setExpandedStudent] = useState(null)
+
+  // State for Student Answer Sheet inspection modal
+  const [activeSheetResult, setActiveSheetResult] = useState(null)
+  const [sheetFilter, setSheetFilter] = useState('all')
+
+  const handleCloseSheet = () => {
+    setActiveSheetResult(null)
+    setSheetFilter('all')
+  }
+
+  useEffect(() => {
+    if (!activeSheetResult) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') handleCloseSheet()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeSheetResult])
+
+  const getQuestionsForResult = (res) => {
+    if (!res) return []
+    if (res.quiz?.questions && Array.isArray(res.quiz.questions) && res.quiz.questions.length > 0) {
+      return res.quiz.questions
+    }
+    const targetQuizId = String(res.quiz?._id || res.quiz || '')
+    const matched = quizzes.find(q => String(q._id) === targetQuizId)
+    if (matched?.questions && Array.isArray(matched.questions)) {
+      return matched.questions
+    }
+    return []
+  }
 
   // Current selected quiz
   const currentQuiz = quizzes.find(q => q._id === selectedQuizId)
@@ -329,6 +362,7 @@ export default function AdminResults({
                       <th>Accuracy</th>
                       <th>Time</th>
                       <th>Date</th>
+                      <th style={{ textAlign: 'right' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -342,7 +376,11 @@ export default function AdminResults({
                         : '—'
 
                       return (
-                        <tr key={r._id || index}>
+                        <tr
+                          key={r._id || index}
+                          className={styles.clickableRow}
+                          onClick={() => setActiveSheetResult(r)}
+                          title="Click to view complete answer sheet">
                           <td style={{ textAlign: 'center' }}>
                             {renderRankBadge(index + 1)}
                           </td>
@@ -388,6 +426,17 @@ export default function AdminResults({
                           <td style={{ color: 'var(--text-dim)', fontSize: '12px' }}>
                             {new Date(r.completedAt).toLocaleDateString()} at{' '}
                             {new Date(r.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              className={styles.viewSheetBtn}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setActiveSheetResult(r)
+                              }}>
+                              View Answers →
+                            </button>
                           </td>
                         </tr>
                       )
@@ -607,6 +656,17 @@ export default function AdminResults({
                                     className={`${styles.progressFill} ${getScoreColor(result.score)}`}
                                     style={{ width: `${result.score}%` }} />
                                 </div>
+                                <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
+                                  <button
+                                    type="button"
+                                    className={styles.viewSheetBtn}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setActiveSheetResult(result)
+                                    }}>
+                                    View Answers →
+                                  </button>
+                                </div>
                               </div>
                             ))}
                         </div>
@@ -619,6 +679,213 @@ export default function AdminResults({
           )}
         </>
       )}
+      {activeSheetResult && (() => {
+        const candidateName = activeSheetResult.user?.name || activeSheetResult.guestName || 'Guest Participant'
+        const candidateEmail = activeSheetResult.user?.email || activeSheetResult.guestEmail || 'No email provided'
+        const isGuest = !activeSheetResult.user
+        const quizTitle = activeSheetResult.quiz?.title || 'Quiz'
+        const questions = getQuestionsForResult(activeSheetResult)
+        const timeStr = activeSheetResult.timeTaken > 0
+          ? `${Math.floor(activeSheetResult.timeTaken / 60)}m ${activeSheetResult.timeTaken % 60}s`
+          : '—'
+        const dateStr = new Date(activeSheetResult.completedAt).toLocaleDateString() + ' at ' +
+          new Date(activeSheetResult.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+        const filteredQuestions = questions.filter(q => {
+          const studentAns = (activeSheetResult.answers || []).find(
+            a => String(a.questionId) === String(q._id)
+          )
+          const isAnswered = studentAns && studentAns.selectedOption !== undefined && studentAns.selectedOption !== -1
+          const isCorrect = isAnswered && Boolean(studentAns.isCorrect)
+
+          if (sheetFilter === 'mistakes') return !isCorrect
+          if (sheetFilter === 'correct') return isCorrect
+          return true
+        })
+
+        const totalQ = activeSheetResult.totalQuestions || questions.length
+        const correctCount = activeSheetResult.correctAnswers || 0
+        const mistakesCount = Math.max(0, totalQ - correctCount)
+
+        return (
+          <div className={styles.modalOverlay} onClick={handleCloseSheet}>
+            <div className={styles.sheetModal} onClick={e => e.stopPropagation()}>
+              <div className={styles.sheetHeader}>
+                <div className={styles.sheetHeaderInfo}>
+                  <div className={styles.sheetCandidateTitle}>
+                    <span>{candidateName}</span>
+                    <span className={`${styles.participantTag} ${isGuest ? styles.tagGuest : styles.tagStudent}`}>
+                      {isGuest ? 'Guest' : (activeSheetResult.user?.role || 'Student')}
+                    </span>
+                  </div>
+                  <div className={styles.sheetCandidateMeta}>
+                    <span>📧 {candidateEmail}</span>
+                    <span>📝 {quizTitle}</span>
+                    <span>⏱️ {timeStr}</span>
+                    <span>📅 {dateStr}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className={styles.sheetScorePills}>
+                    <span className={`${styles.scoreBadge} ${getScoreColor(activeSheetResult.score)}`}>
+                      <span className={styles.scoreEmoji}>{getScoreEmoji(activeSheetResult.score)}</span>
+                      <span className={styles.scoreValue}>{activeSheetResult.score}%</span>
+                    </span>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                      {correctCount} / {totalQ} Correct
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.sheetCloseBtn}
+                    onClick={handleCloseSheet}
+                    title="Close (Esc)">
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.sheetFilterBar}>
+                <div className={styles.sheetFilterTabs}>
+                  <button
+                    type="button"
+                    className={`${styles.sheetFilterTab} ${sheetFilter === 'all' ? styles.sheetFilterTabActive : ''}`}
+                    onClick={() => setSheetFilter('all')}>
+                    All ({questions.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.sheetFilterTab} ${sheetFilter === 'mistakes' ? styles.sheetFilterTabActive : ''}`}
+                    onClick={() => setSheetFilter('mistakes')}>
+                    ❌ Mistakes ({mistakesCount})
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.sheetFilterTab} ${sheetFilter === 'correct' ? styles.sheetFilterTabActive : ''}`}
+                    onClick={() => setSheetFilter('correct')}>
+                    ✓ Correct ({correctCount})
+                  </button>
+                </div>
+
+                <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
+                  Showing {filteredQuestions.length} of {questions.length} questions
+                </div>
+              </div>
+
+              <div className={styles.sheetBody}>
+                {questions.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                    No question details available for this quiz.
+                  </div>
+                ) : filteredQuestions.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                    No questions match this filter.
+                  </div>
+                ) : (
+                  filteredQuestions.map((q, qIndex) => {
+                    const studentAns = (activeSheetResult.answers || []).find(
+                      a => String(a.questionId) === String(q._id)
+                    )
+                    const isAnswered = studentAns && studentAns.selectedOption !== undefined && studentAns.selectedOption !== -1
+                    const isCorrect = isAnswered && Boolean(studentAns.isCorrect)
+
+                    let cardModifier = styles.sheetQuestionUnanswered
+                    if (isAnswered) {
+                      cardModifier = isCorrect ? styles.sheetQuestionCorrect : styles.sheetQuestionWrong
+                    }
+
+                    return (
+                      <div key={q._id || qIndex} className={`${styles.sheetQuestionCard} ${cardModifier}`}>
+                        <div className={styles.sheetQuestionHeader}>
+                          <span className={styles.sheetQuestionNum}>
+                            Question {questions.indexOf(q) + 1}
+                          </span>
+                          {isCorrect ? (
+                            <span className={`${styles.sheetStatusBadge} ${styles.statusCorrect}`}>
+                              ✓ Correct (+1)
+                            </span>
+                          ) : isAnswered ? (
+                            <span className={`${styles.sheetStatusBadge} ${styles.statusWrong}`}>
+                              ✕ Incorrect (0)
+                            </span>
+                          ) : (
+                            <span className={`${styles.sheetStatusBadge} ${styles.statusUnanswered}`}>
+                              — Unanswered (0)
+                            </span>
+                          )}
+                        </div>
+
+                        <div className={styles.sheetQuestionText}>{q.question}</div>
+
+                        <div className={styles.sheetOptionsList}>
+                          {q.options?.map((opt, optIdx) => {
+                            const isStudentChoice = isAnswered && studentAns.selectedOption === optIdx
+                            const isCorrectOption = q.correctAnswer === optIdx
+
+                            let optionClass = styles.sheetOptionItem
+                            if (isStudentChoice) {
+                              optionClass += isCorrect
+                                ? ` ${styles.sheetOptionStudentCorrect}`
+                                : ` ${styles.sheetOptionStudentWrong}`
+                            } else if (isCorrectOption) {
+                              optionClass += ` ${styles.sheetOptionKeyCorrect}`
+                            }
+
+                            return (
+                              <div key={optIdx} className={optionClass}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <span style={{ fontWeight: '700', color: 'var(--text-muted)', minWidth: '18px' }}>
+                                    {OPTION_KEYS[optIdx] || optIdx + 1}.
+                                  </span>
+                                  <span>{opt}</span>
+                                </div>
+                                <div>
+                                  {isStudentChoice && isCorrect && (
+                                    <span className={`${styles.sheetOptionTag} ${styles.tagStudentCorrect}`}>
+                                      Student Choice ✓
+                                    </span>
+                                  )}
+                                  {isStudentChoice && !isCorrect && (
+                                    <span className={`${styles.sheetOptionTag} ${styles.tagStudentSelected}`}>
+                                      Student Choice ✕
+                                    </span>
+                                  )}
+                                  {!isStudentChoice && isCorrectOption && (
+                                    <span className={`${styles.sheetOptionTag} ${styles.tagCorrectAnswer}`}>
+                                      Correct Answer ✓
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              <div className={styles.sheetFooter}>
+                <button
+                  type="button"
+                  className={styles.copyCodeBtn}
+                  onClick={() => window.print()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  🖨️ Print / Save PDF
+                </button>
+                <button
+                  type="button"
+                  className={styles.viewSheetBtn}
+                  onClick={handleCloseSheet}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </>
   )
 }
