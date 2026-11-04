@@ -6,6 +6,7 @@ import styles from './page.module.css'
 
 import CreateQuizForm from '../components/admin/CreateQuizForm'
 import AIGenerator from '../components/admin/AIGenerator'
+import BulkQuestionImporter from '../components/admin/BulkQuestionImporter'
 import QuestionEditor from '../components/admin/QuestionEditor'
 import AdminQuizList from '../components/admin/AdminQuizList'
 
@@ -14,7 +15,7 @@ export default function Admin() {
   const router = useRouter()
 
   const [activeTab, setActiveTab] = useState('manage') // 'manage' | 'create'
-  const [creationMethod, setCreationMethod] = useState('ai') // 'ai' | 'manual'
+  const [creationMethod, setCreationMethod] = useState('ai')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterDifficulty, setFilterDifficulty] = useState('all')
 
@@ -446,6 +447,12 @@ export default function Admin() {
               </button>
               <button
                 type="button"
+                className={`${styles.methodBtn} ${creationMethod === 'bulk' ? styles.methodBtnActive : ''}`}
+                onClick={() => setCreationMethod('bulk')}>
+                Bulk Paste / Import
+              </button>
+              <button
+                type="button"
                 className={`${styles.methodBtn} ${creationMethod === 'manual' ? styles.methodBtnActive : ''}`}
                 onClick={() => setCreationMethod('manual')}>
                 ✍️ Manual Question Editor
@@ -454,6 +461,13 @@ export default function Admin() {
 
             {creationMethod === 'ai' && (
               <AIGenerator
+                onConfirm={addAiQuestions}
+                isSubmitting={isSubmitting}
+              />
+            )}
+
+            {creationMethod === 'bulk' && (
+              <BulkQuestionImporter
                 onConfirm={addAiQuestions}
                 isSubmitting={isSubmitting}
               />
@@ -472,13 +486,28 @@ export default function Admin() {
 
           {newQuiz.questions.length > 0 && (
             <div className={styles.card}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                 <h3 className={styles.sectionTitle} style={{ margin: 0 }}>
                   Questions in this Quiz ({newQuiz.questions.length})
                 </h3>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Click a question to inspect & edit options
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Click a question to inspect & edit options
+                  </span>
+                  <button
+                    type="button"
+                    className={`${styles.btn} ${styles.btnDanger}`}
+                    style={{ padding: '4px 10px', fontSize: '12px' }}
+                    onClick={() => {
+                      if (confirm(`Remove all ${newQuiz.questions.length} questions from this quiz draft?`)) {
+                        setNewQuiz(prev => ({ ...prev, questions: [] }))
+                        setMessage('Cleared all questions from quiz draft.')
+                      }
+                    }}
+                    disabled={isSubmitting}>
+                    Remove All Questions
+                  </button>
+                </div>
               </div>
 
               <div className={styles.optionList}>

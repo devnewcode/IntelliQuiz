@@ -1134,3 +1134,168 @@
     gap: 0;
   }
 }
+.previewOptionsGrid2Col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.previewHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.previewHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .previewLayoutToggle {
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .methodToggle {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .methodBtn {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    text-align: center;
+  }
+  .previewOptionsGrid2Col {
+    grid-template-columns: 1fr;
+  }
+  .previewScrollContainer {
+    max-height: 420px;
+    padding: 8px 6px;
+  }
+  .previewStickyHeader {
+    padding: 8px 10px;
+    margin-bottom: 8px;
+  }
+  .previewStickyHeader .previewHeaderActions {
+    display: none;
+  }
+  .previewHeaderLeft {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .previewQuestionCard {
+    padding: 14px 12px;
+  }
+  .previewBottomBar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .previewBottomActions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+  .previewBottomActions .btnDanger {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  .previewBottomActions .btnSuccess {
+    flex: 2;
+    text-align: center;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    font-weight: 700;
+  }
+}
+
+.previewOptionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.previewScrollContainer {
+  max-height: 520px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  scrollbar-width: thin;
+  scrollbar-color: var(--purple-25) transparent;
+}
+
+.previewScrollContainer::-webkit-scrollbar {
+  width: 6px;
+}
+.previewScrollContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+.previewScrollContainer::-webkit-scrollbar-thumb {
+  background: var(--purple-25);
+  border-radius: 4px;
+}
+.previewScrollContainer::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-500);
+}
+
+.previewStickyHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: rgba(17, 24, 39, 0.96);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.previewLayoutToggle {
+  display: flex;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.previewLayoutBtn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  transition: all var(--tr-fast);
+}
+
+.previewLayoutBtn:hover {
+  color: var(--text-primary);
+}
+
+.previewLayoutBtnActive {
+  background: var(--purple-25);
+  color: #ffffff;
+}
