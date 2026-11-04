@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import dbConnect from '../../../../../lib/mongodb'
 import Quiz from '../../../../../lib/models/Quiz'
-import { verifyToken } from '../../../../../lib/auth'
+import { verifyToken, getTokenFromRequest } from '../../../../../lib/auth'
 
 export async function GET(request, context) {
   try {
@@ -29,8 +29,7 @@ export async function GET(request, context) {
       )
     }
 
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.split(' ')[1]
+    const token = getTokenFromRequest(request)
     const decoded = token ? verifyToken(token) : null
 
     const isAdmin = decoded?.role === 'admin' || decoded?.role === 'superadmin'

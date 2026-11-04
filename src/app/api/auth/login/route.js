@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { authenticateUser, generateToken } from '../../../../lib/auth'
+import { authenticateUser, generateToken, AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS } from '../../../../lib/auth'
 
 export async function POST(request) {
   try {
@@ -23,11 +23,19 @@ export async function POST(request) {
 
     const token = generateToken(user)
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       token,
       user
     })
+
+    response.cookies.set({
+      name: AUTH_COOKIE_NAME,
+      value: token,
+      ...AUTH_COOKIE_OPTIONS
+    })
+
+    return response
   } catch (error) {
     console.error('Login error:', error)
     return NextResponse.json(

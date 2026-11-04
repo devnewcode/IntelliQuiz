@@ -98,3 +98,33 @@ export function verifyToken(token) {
     return null
   }
 }
+
+export const AUTH_COOKIE_NAME = 'token'
+
+export const AUTH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/',
+  maxAge: 60 * 60 * 24
+}
+
+export function getTokenFromRequest(request) {
+  if (!request) return null
+
+  if (request.cookies && typeof request.cookies.get === 'function') {
+    const cookieToken = request.cookies.get(AUTH_COOKIE_NAME)?.value
+    if (cookieToken) {
+      return cookieToken
+    }
+  }
+
+  if (request.headers && typeof request.headers.get === 'function') {
+    const authHeader = request.headers.get('authorization')
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      return authHeader.split(' ')[1]
+    }
+  }
+
+  return null
+}

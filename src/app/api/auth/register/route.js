@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createUser, generateToken } from '../../../../lib/auth'
+import { createUser, generateToken, AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS } from '../../../../lib/auth'
 
 export async function POST(request) {
   try {
     const { username, password, name, email, role, adminCode } = await request.json()
 
-    // ── Basic validation ──
     if (!username || !password || !name || !email) {
       return NextResponse.json(
         { message: 'All fields are required' },
@@ -35,12 +34,9 @@ export async function POST(request) {
       )
     }
 
-    // ── Admin code verification ──
-    // If someone tries to register as admin, verify the secret code
     if (role === 'admin') {
       const correctCode = process.env.ADMIN_SECRET_CODE
 
-      // Extra safety: if env variable is not set, block admin creation entirely
       if (!correctCode) {
         return NextResponse.json(
           { message: 'Admin registration is currently disabled' },
@@ -52,15 +48,10 @@ export async function POST(request) {
         return NextResponse.json(
           { message: 'Invalid admin access code' },
           { status: 403 }
-          // 403 = Forbidden (authenticated but not authorized)
-          // NOT 401 — we don't want to reveal whether code exists
         )
       }
     }
 
-    // ── Create user ──
-    // If role is anything other than 'admin', force it to 'student'
-    // This prevents anyone from passing a custom role through API
     const safeRole = role === 'admin' ? 'admin' : 'student'
 
     const user = await createUser({
@@ -73,12 +64,20 @@ export async function POST(request) {
 
     const token = generateToken(user)
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Account created successfully!',
       token,
       user
     })
+
+    response.cookies.set({
+      name: AUTH_COOKIE_NAME,
+      value: token,
+      ...AUTH_COOKIE_OPTIONS
+    })
+
+    return response
 
   } catch (error) {
     console.error('Registration error:', error)

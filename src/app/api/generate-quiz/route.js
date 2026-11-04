@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { retrieveRelevantChunks } from '../../../lib/rag/retrieve'
 import SourceDocument from '../../../lib/models/SourceDocument'
 import dbConnect from '../../../lib/mongodb'
-import { verifyToken } from '../../../lib/auth'
+import { verifyToken, getTokenFromRequest } from '../../../lib/auth'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite'
@@ -77,15 +77,14 @@ async function generateAndValidate(model, promptText) {
 export async function POST(request) {
   try {
     // ── Authentication Check ──
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = getTokenFromRequest(request)
+    if (!token) {
       return NextResponse.json(
         { message: 'Authentication required to generate quizzes' },
         { status: 401 }
       )
     }
 
-    const token = authHeader.split(' ')[1]
     const decoded = verifyToken(token)
 
     if (!decoded || (decoded.role !== 'admin' && decoded.role !== 'superadmin')) {

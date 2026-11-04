@@ -13,24 +13,26 @@ export function AuthProvider({ children }) {
 
   const checkAuth = async () => {
     try {
-      const token = localStorage.getItem('token')
-      if (token) {
-        const response = await fetch('/api/auth/verify', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-        
-        if (response.ok) {
-          const userData = await response.json()
-          setUser(userData.user)
-        } else {
+      const localToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      const headers = localToken ? { 'Authorization': `Bearer ${localToken}` } : {}
+
+      const response = await fetch('/api/auth/verify', {
+        headers,
+        credentials: 'same-origin'
+      })
+
+      if (response.ok) {
+        const userData = await response.json()
+        setUser(userData.user)
+      } else {
+        setUser(null)
+        if (typeof window !== 'undefined') {
           localStorage.removeItem('token')
         }
       }
     } catch (error) {
       console.error('Auth check failed:', error)
-      localStorage.removeItem('token')
+      setUser(null)
     } finally {
       setLoading(false)
     }
@@ -43,13 +45,16 @@ export function AuthProvider({ children }) {
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'same-origin',
         body: JSON.stringify({ username, password })
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        localStorage.setItem('token', data.token)
+        if (typeof window !== 'undefined' && data.token) {
+          localStorage.setItem('token', data.token)
+        }
         setUser(data.user)
         return { success: true }
       } else {
@@ -67,13 +72,16 @@ export function AuthProvider({ children }) {
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'same-origin',
         body: JSON.stringify(userData)
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        localStorage.setItem('token', data.token)
+        if (typeof window !== 'undefined' && data.token) {
+          localStorage.setItem('token', data.token)
+        }
         setUser(data.user)
         return { success: true }
       } else {
@@ -84,9 +92,20 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const logout = () => {
-    localStorage.removeItem('token')
-    setUser(null)
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin'
+      })
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token')
+      }
+      setUser(null)
+    }
   }
 
   return (

@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
-import { verifyToken } from '../../../../lib/auth'
+import { verifyToken, getTokenFromRequest } from '../../../../lib/auth'
 
 export async function GET(request) {
   try {
-    const authHeader = request.headers.get('authorization')
+    const token = getTokenFromRequest(request)
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!token) {
       return NextResponse.json(
         { message: 'No token provided' },
         { status: 401 }
       )
     }
 
-    const token = authHeader.split(' ')[1]
     const decoded = verifyToken(token)
 
     if (!decoded) {
